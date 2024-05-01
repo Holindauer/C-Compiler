@@ -3,11 +3,14 @@ module LexerSpec (main, spec) where
 import Test.Hspec
 import Lexer (lexer, Token(..))
 
+-- Test Driver
 main :: IO ()
 main = hspec spec
 
+-- Test Cases
 spec :: Spec
 spec = describe "Lexer" $ do
+
   describe "Operators and Delimiters" $ do
     it "lexes single character operators" $ do
       lexer "+" `shouldBe` [TPlus, TEOF]
@@ -38,3 +41,12 @@ spec = describe "Lexer" $ do
   describe "Whitespace Handling" $ do
     it "ignores whitespace" $ do
       lexer "   int    x   " `shouldBe` [TInt, TIdent "x", TEOF]
+
+  describe "Full Assignment Statement" $ do
+    it "lexes a full C statement" $ do
+      lexer "int x = 5 + 3 * 2;" `shouldBe` [TInt, TIdent "x", TAssign, TIntLit 5, TPlus, TIntLit 3, TStar, TIntLit 2, TSemicolon, TEOF]
+
+  describe "Full Conditional Statment" $ do
+    it "lexes a full C statement" $ do
+      lexer "if (x > 0) { x = 1; } else { x = 0; }" `shouldBe` [TIf, TLparen, TIdent "x", TGreaterThan, TIntLit 0, TRparen, TLbrace, TIdent "x", TAssign, TIntLit 1, TSemicolon, TRbrace, TElse, TLbrace, TIdent "x", TAssign, TIntLit 0, TSemicolon, TRbrace, TEOF]
+

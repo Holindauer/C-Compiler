@@ -12,7 +12,7 @@ data Token =
     TInt | TChar | TDouble | TFloat       
 
   -- Literals and identifiers
-  | TIntLit Int | TDoubleLit Double | TIdent String  
+  | TIntLit Int | TDoubleLit Double | TIdent String  | TFloatLit Float
 
   -- Operators
   | TAssign | TPlus | TMinus | TStar | TSlash | TPercent | TEqual | TNotEqual
