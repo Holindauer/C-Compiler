@@ -8,7 +8,8 @@ module Parser
   , parseExpr
   , parseStmt
   , parseAssignment
-  , ParseError(..)   -- Export the ParseError type along with its constructors
+  , parseDeclaration  
+  , ParseError(..)
   ) where
 
 
@@ -83,6 +84,17 @@ parseAssignment var (TAssign : rest) = -- Assignments always start with an idean
 
         -- If a semicolon is not found, return an error
         _ -> Left MissingSemicolon
+
+-- Parses a variable declaration statement
+parseDeclaration :: String -> LexedTokens -> ParserResult (Stmt, LexedTokens)
+parseDeclaration dataType tokens = case tokens of
+
+    -- Handle simple declarations, expecting a variable identifier followed by a semicolon
+    (TIdent var : TSemicolon : rest) ->
+        Right (Declaration dataType (Var var), rest)
+
+    -- Handle error cases if the expected tokens are not found
+    _ -> Left (InvalidSyntax "Expected identifier followed by a semicolon for declaration")
 
 
 
@@ -171,8 +183,6 @@ parseUnaryExpr (TNot : rest) = -- Parse unary expressions for logical NOT
 
 -- If no unary operator is found, parse the primary expression
 parseUnaryExpr tokens = parsePrimaryExpr tokens
-
-
 
 
 -- Parses primary expressions (integers, floats, variables, parenthesized expressions)
