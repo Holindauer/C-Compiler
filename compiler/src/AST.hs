@@ -27,11 +27,12 @@ data Expr
 -- Statements and structure of a C-like program. 
 data Stmt
   = ExprStmt Expr
-  | AssignStmt String Expr
-  | Declaration String Expr
-  | IfStmt Expr [Stmt] [Stmt]  -- Conditional, then-body, else-body
-  | WhileStmt Expr [Stmt]
-  | ForStmt Stmt Expr Stmt [Stmt] -- Initializer, condition, post-loop, body
-  deriving (Eq, Show)
+  | AssignStmt String Expr                   -- assignment of pre-declared variables
+  | SimpleDeclaration String Expr            -- simple variable declaration: int x;
+  | DeclarationAssignment String String Expr -- declaration w/ assignment: data type, variable name, initial value
+  | IfStmt Expr [Stmt] [Stmt]                -- if-else statement with condition and body statements    
+  | WhileStmt Expr [Stmt]                    -- while loop with condition and body statements
+  | ForStmt Stmt Expr Stmt [Stmt]            -- for loop with init, condition, update, and body statements
+  deriving (Eq, Show) 
 
 type Program = [Stmt]

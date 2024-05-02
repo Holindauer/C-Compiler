@@ -1,62 +1,57 @@
--- Parser.h contains parser functions for the C subset langauge.
--- The parser is used after the Lexer, and will convert a list of tokens
--- into an abstract syntax tree (AST) that represents the program's 
--- gramatical structure. The AST is defined in AST.hs.
+-- Parser.h contains parser functions for the C subset langauge.  The parser is used after 
+-- the Lexer, converting the outputted list of tokens into an bstract syntax tree (defined
+-- in AST.hs) that represents the program's gramatical structure.
 
-module Parser 
-  ( parseProgram
-  , parseExpr
-  , parseStmt
-  , parseAssignment
-  , parseDeclaration  
-  , ParseError(..)
-  ) where
-
+module Parser ( parseProgram, parseExpr, parseStmt, parseAssignment, parseDeclaration, ParseError(..)) where
 
 import Lexer
 import AST
 
--- Type alias for lexed tokens state
+-- Type alias for lexed tokens 
 type LexedTokens = [Token]
 
--- Parser result type alias
+-- ParserResult type alias. Parsing results in either a ParseError or a value of type a
 type ParserResult a = Either ParseError a
 
--- This type is used to represent errors that can occur during parsing
+-- ParseError type is used to represent potential errors that can occur during parsing
 data ParseError = UnexpectedToken Token
                 | MissingSemicolon
                 | InvalidSyntax String
                 | UnexpectedEndOfInput
-                deriving (Show, Eq)
+                deriving (Show, Eq) 
 
--- parsePogram is the master parsing function that parses the 
--- entire program by recursively processing each statement
+-- parsePogram is the master parsing function that parses the entire program by recursively 
+-- processing each statement, packaging them into the AST and returning the final result.
 -- @dev Left and Right are constructors of the Either type
 parseProgram :: LexedTokens -> ParserResult ([Stmt], LexedTokens)
 parseProgram [] = Right ([], []) -- Base case: empty program
-parseProgram tokens =            -- Recursive case: parse a statement and then the rest of the program
-    case parseStmt tokens of
+parseProgram tokens =            -- Recursive case: parse the program
+
+    case parseStmt tokens of     -- call parseStmt to parse the next statement from the lexed tokens
         Left err -> Left err     -- error in parsing the statement
-        Right (stmt, rest) ->    -- successfully parsed a statement
+        Right (stmt, rest) ->    -- successfully parsed first statement
 
             -- Recursively parse the rest of the program
             case parseProgram rest of
                 Left err -> Left err
-                Right (stmts, finalTokens) -> Right (stmt : stmts, finalTokens)
+
+                -- Append the parsed statement to the front of the list of stmts that have been recursively parsed
+                Right (parsedStmts, remainingTokens) -> Right (stmt : parsedStmts, remainingTokens)
 
 
-
--- Determines the type of statement and delegates to the appropriate parsing function
+-- parseStmt accepts the lexedTokens list, determines what type of statement is next in the program, 
+-- it then delegates control to the appropriate parsing function. It returns a ParserResult that contains 
+-- either the parsed statement and the remaining tokens or an error.
 -- @dev Stmt is a node type of the AST as defined in AST.hs
 parseStmt :: LexedTokens -> ParserResult (Stmt, LexedTokens)
 parseStmt [] = Left UnexpectedEndOfInput
 parseStmt (t:ts) = case t of
 
     -- Variable declaration statements always start with a data type
-    TInt -> parseDeclarationPlaceholder "int" ts
-    TChar -> parseDeclarationPlaceholder "char" ts
-    TDouble -> parseDeclarationPlaceholder "double" ts
-    TFloat -> parseDeclarationPlaceholder "float" ts
+    TInt -> parseDeclaration "int" ts
+    TChar -> parseDeclaration "char" ts
+    TDouble -> parseDeclaration "double" ts
+    TFloat -> parseDeclaration "float" ts
     
     -- Assignment statements always start with a variable name.
     TIdent var -> parseAssignment var ts
@@ -67,9 +62,12 @@ parseStmt (t:ts) = case t of
     TFor -> parseForLoopPlaceholder ts
     _ -> Left (InvalidSyntax "Invalid statement")  -- Catch-all for other patterns
 
---------------------------------------------------------------------------------------------------Assignment Parsing
+-------------------------------------------------------------------------------------------------- Statement Type Delegate Functions
 
--- Parses an assignment statement
+
+-- parseAssignment is a delegator function called by parseStmt to parse statments determined to 
+-- be assignments of preinitialized variables. It returns a ParserResult that contains either the
+-- parsed statement and the remaining tokens or an error
 parseAssignment :: String -> LexedTokens -> ParserResult (Stmt, LexedTokens)
 parseAssignment var (TAssign : rest) = -- Assignments always start with an ideantifier followed by an assignment operator
     
@@ -85,22 +83,45 @@ parseAssignment var (TAssign : rest) = -- Assignments always start with an idean
         -- If a semicolon is not found, return an error
         _ -> Left MissingSemicolon
 
--- Parses a variable declaration statement
+-- parseAssignment is a delegator function called by parseStmt to parse statments determined to
+-- be declarations of variables. 
 parseDeclaration :: String -> LexedTokens -> ParserResult (Stmt, LexedTokens)
 parseDeclaration dataType tokens = case tokens of
 
-    -- Handle simple declarations, expecting a variable identifier followed by a semicolon
+    -- Simple Declaration: int x;
     (TIdent var : TSemicolon : rest) ->
-        Right (Declaration dataType (Var var), rest)
 
-    -- Handle error cases if the expected tokens are not found
-    _ -> Left (InvalidSyntax "Expected identifier followed by a semicolon for declaration")
+        -- ensure there are no additional tokens after the semicolon before
+        -- packaging collected components into an ASTsimple declaration node
+        if null rest
+        then Right (SimpleDeclaration dataType (Var var), rest)
+        else Left (UnexpectedToken (head rest))
 
+    -- Declaration with Assignment: float f = 3.14;
+    (TIdent var : TAssign : exprTokens) ->
 
+        -- Parse the expression on the right-hand side of the assignment until a semicolon is encountered
+        case break (== TSemicolon) exprTokens of
+            (beforeSemi, semicolon : afterSemi) ->
 
---------------------------------------------------------------------------------------------------Expression Parsing
+                -- ensure there are no additional tokens after the semicolon
+                if null afterSemi
+                then case parseExpr beforeSemi of -- Parse the expression
 
--- Parses an expression from a list of tokens
+                        -- Package the collected components into an AST declaration assignment node
+                        Right (expr, []) -> Right (DeclarationAssignment dataType var expr, afterSemi)
+                        Left err -> Left err
+                        _ -> Left (InvalidSyntax "Invalid expression format in declaration")
+                else Left (UnexpectedToken (head afterSemi))
+            _ -> Left MissingSemicolon
+    _ -> Left (InvalidSyntax "Invalid declaration format")
+
+-------------------------------------------------------------------------------------------------- Generic Expression Parsing
+
+-- parseExpr is tasked with parsing expressions statements. It accepts the lexed tokens list, pattern matches
+-- to determine if the expression is a simple primary expression or a more complex operation. If it is complex,
+-- control is delegated to parseComplexExpr for further processing. The function returns a ParserResult that 
+-- contains either the parsed expression and the remaining tokens or an error.
 parseExpr :: LexedTokens -> ParserResult (Expr, LexedTokens)
 parseExpr tokens = case tokens of
 
@@ -110,7 +131,7 @@ parseExpr tokens = case tokens of
     (TDoubleLit d : rest) -> Right (DoubleLit d, rest)           
     (TIdent var : rest) -> Right (Var var, rest)                
 
-    -- If it's not a simple expression, delegate to parseComplexExpr
+    -- If complex expression, delegate to parseComplexExpr
     _ -> parseComplexExpr tokens
 
 -- Parses more complex expressions, starting with the lowest precedence
@@ -149,13 +170,13 @@ parseBinaryExpr precedence tokens
             Left err -> Left err
             Right (op, nextTokens) -> case parseBinaryExpr (precedence + 1) nextTokens of
 
-                -- Parse the right-hand side of the expression and create a binary operation node
+                -- Parse the right-hand side of the expression, then packaged the 
+                -- collected components into a binary operation node of the AST
                 Left err -> Left err
                 Right (rhs, finalTokens) -> Right (BinOp op lhs rhs, finalTokens)
 
--- Parses an operator based on the current precedence level
--- The function returns the AST Op node and the remaining tokens
--- Parses an operator based on the current precedence level
+-- Parses the operator of a binary op based on the current precedence level. 
+-- The function returns an AST Op node and the remaining tokens.
 parseOperator :: Int -> LexedTokens -> ParserResult (Op, LexedTokens)
 parseOperator precedence tokens = case tokens of
     (TOr : rest) | precedence == 0 -> Right (Or, rest)
@@ -174,7 +195,8 @@ parseOperator precedence tokens = case tokens of
     _ -> Left $ UnexpectedToken (head tokens)
 
 
--- Parses unary expressions
+-- parseUnaryExpr parses a unary expression, which can be a negation or logical NOT operation.
+-- The function returns an AST UnaryOp node and the remaining tokens.
 parseUnaryExpr :: LexedTokens -> ParserResult (Expr, LexedTokens)
 parseUnaryExpr (TMinus : rest) = -- Parse unary expressions for negation and logical NOT
     parsePrimaryExpr rest >>= \(expr, finalTokens) -> Right (UnaryOp Neg expr, finalTokens)
@@ -194,16 +216,7 @@ parsePrimaryExpr (TLparen : rest) =
 parsePrimaryExpr tokens = Left $ InvalidSyntax "Invalid primary expression"
 
 
-
 -------------------------------------------------------------------------------------------------- Placeholders for Conditional and Loop Parsing
-
--- Parses a variable declaration statement
-parseDeclarationPlaceholder :: String -> LexedTokens -> ParserResult (Stmt, LexedTokens)
-parseDeclarationPlaceholder dataType tokens = 
-    case tokens of
-        (TIdent var : TSemicolon : rest) -> Right (Declaration dataType (Var var), rest)
-        _ -> Left MissingSemicolon
-
 
 -- Placeholder parsing function for conditionals
 parseConditionalPlaceholder :: LexedTokens -> ParserResult (Stmt, LexedTokens)

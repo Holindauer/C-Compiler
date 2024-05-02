@@ -11,6 +11,7 @@ main = hspec spec
 
 spec :: Spec
 spec = do
+  -- Unit tests for Assignments Parsing
   describe "Assignment Statement Parsing" $ do
     it "parses simple integer assignments correctly" $ do
       let tokens = [TIdent "x", TAssign, TIntLit 10, TSemicolon]
@@ -35,28 +36,44 @@ spec = do
       let tokens = [TIdent "x", TAssign, TIf, TSemicolon]
       parseAssignment "x" (tail tokens) `shouldBe` Left (InvalidSyntax "Invalid primary expression")
 
+  -- Unit tests for Variable Declaration Parsing
   describe "Variable Declaration Parsing" $ do
-    it "parses integer declaration correctly" $ do
+    it "parses simple integer declaration correctly" $ do
       let tokens = [TIdent "x", TSemicolon]
-      let expected = Right (Declaration "int" (Var "x"), [])
+      let expected = Right (SimpleDeclaration "int" (Var "x"), [])
       parseDeclaration "int" tokens `shouldBe` expected
 
-    it "parses float declaration correctly" $ do
+    it "parses simple char declaration correctly" $ do
       let tokens = [TIdent "y", TSemicolon]
-      let expected = Right (Declaration "float" (Var "y"), [])
+      let expected = Right (SimpleDeclaration "char" (Var "y"), [])
+      parseDeclaration "char" tokens `shouldBe` expected
+
+    it "parses float declaration with initialization correctly" $ do
+      let tokens = [TIdent "f", TAssign, TFloatLit 3.14, TSemicolon]
+      let expected = Right (DeclarationAssignment "float" "f" (FloatLit 3.14), [])
       parseDeclaration "float" tokens `shouldBe` expected
 
-    it "parses double declaration correctly" $ do
-      let tokens = [TIdent "z", TSemicolon]
-      let expected = Right (Declaration "double" (Var "z"), [])
+    it "parses double declaration with initialization correctly" $ do
+      let tokens = [TIdent "d", TAssign, TDoubleLit 2.718, TSemicolon]
+      let expected = Right (DeclarationAssignment "double" "d" (DoubleLit 2.718), [])
       parseDeclaration "double" tokens `shouldBe` expected
 
-    it "fails on missing semicolon in declaration" $ do
+    it "fails on missing semicolon in simple declaration" $ do
       let tokens = [TIdent "x"]
-      let expected = Left (InvalidSyntax "Expected identifier followed by a semicolon for declaration")
+      let expected = Left (InvalidSyntax "Invalid declaration format")
       parseDeclaration "int" tokens `shouldBe` expected
 
-    it "fails on extra tokens after declaration" $ do
+    it "fails on missing semicolon after initialization" $ do
+      let tokens = [TIdent "x", TAssign, TIntLit 10]
+      let expected = Left MissingSemicolon
+      parseDeclaration "int" tokens `shouldBe` expected
+
+    it "fails on extra tokens after simple declaration" $ do
       let tokens = [TIdent "x", TSemicolon, TIdent "extra"]
-      let expected = Left (InvalidSyntax "Expected identifier followed by a semicolon for declaration")
+      let expected = Left (UnexpectedToken (TIdent "extra"))
+      parseDeclaration "int" tokens `shouldBe` expected
+
+    it "fails on extra tokens after declaration with initialization" $ do
+      let tokens = [TIdent "x", TAssign, TIntLit 10, TSemicolon, TIdent "extra"]
+      let expected = Left (UnexpectedToken (TIdent "extra"))
       parseDeclaration "int" tokens `shouldBe` expected
