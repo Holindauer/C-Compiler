@@ -31,6 +31,7 @@ data Stmt
   | SimpleDeclaration String Expr            -- simple variable declaration: int x;
   | DeclarationAssignment String String Expr -- declaration w/ assignment: data type, variable name, initial value
   | IfStmt Expr [Stmt] [Stmt]                -- if-else statement with condition and body statements    
+  | ElseStmt [Stmt]                          -- else statement with body statements (Else If Statements are Else  statements whose body is an If statement)
   | WhileStmt Expr [Stmt]                    -- while loop with condition and body statements
   | ForStmt Stmt Expr Stmt [Stmt]            -- for loop with init, condition, update, and body statements
   deriving (Eq, Show) 

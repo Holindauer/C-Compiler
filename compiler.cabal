@@ -61,7 +61,9 @@ test-suite compiler-test
   main-is: Spec.hs
   other-modules:
       LexerSpec
-      ParserSpec
+      ParseAssignmentSpec
+      ParseConditionalSpec
+      ParseDeclarationSpec
       Paths_compiler
   autogen-modules:
       Paths_compiler
