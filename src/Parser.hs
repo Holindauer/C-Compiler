@@ -15,6 +15,7 @@ module Parser
   , parseBlock
   , parseOptionalElse
   , parseStatementsUntilBrace
+  , parseWhileLoop
   , ParseError(..)  -- Ensure all constructors of ParseError are exported
   ) where
 
@@ -38,6 +39,7 @@ data ParseError = UnexpectedToken Token
 
 -- parsePogram is the master parsing function that parses the entire program by recursively 
 -- processing each statement, packaging them into the AST and returning the final result.
+-- It accepts the list of tokens received from the lexer and returns a ParserResult
 -- @dev Left and Right are constructors of the Either type
 parseProgram :: LexedTokens -> ParserResult ([Stmt], LexedTokens)
 parseProgram [] = Right ([], []) -- Base case: empty program
@@ -54,6 +56,8 @@ parseProgram tokens =            -- Recursive case: parse the program
                 -- Append the parsed statement to the front of the list of stmts that have been recursively parsed
                 Right (parsedStmts, remainingTokens) -> Right (stmt : parsedStmts, remainingTokens)
 
+
+-------------------------------------------------------------------------------------------------- Statement Parsing
 
 -- parseStmt accepts the lexedTokens list, determines what type of statement is next in the program, 
 -- it then delegates control to the appropriate parsing function. It returns a ParserResult that contains 
@@ -76,9 +80,37 @@ parseStmt (t:ts) = case t of
     TIf -> parseConditional ts
 
     -- Placeholders for conditional and loop parsing
-    TWhile -> parseWhileLoopPlaceholder ts
+    TWhile -> parseWhileLoop ts
+    
     TFor -> parseForLoopPlaceholder ts
     _ -> Left (InvalidSyntax "Invalid statement")  -- Catch-all for other patterns
+
+
+-- parseBlock is a helper function that parses a block of statements enclosed in curly braces. It returns 
+-- a ParserResult that contains either the parsed statements and the remaining tokens or an error.
+-- @dev This function is called within parseConditional, parseWhileLoop, and parseForLoop 
+parseBlock :: LexedTokens -> ParserResult ([Stmt], LexedTokens)
+parseBlock tokens = case tokens of
+    (TLbrace : rest) ->
+        -- Parse the statements inside the block until a closing brace is encountered
+        -- statements are accumulated into a list until the closing brace is found
+        parseStatementsUntilBrace rest [] >>= \(stmts, TRbrace : afterBlock) ->
+            
+        -- Return the list of statements and the remaining tokens
+        Right (stmts, afterBlock)
+    _ -> Left (InvalidSyntax "Expected opening brace")
+
+-- parseStatementsUntilBrace is a helper function that parses all 
+-- statements within curly braces until a closing brace is encountered.
+parseStatementsUntilBrace :: LexedTokens -> [Stmt] -> ParserResult ([Stmt], LexedTokens)
+parseStatementsUntilBrace tokens acc = case tokens of
+
+    -- If a closing brace is encountered, return the accumulated statements
+    (TRbrace : _) -> Right (acc, tokens)
+
+    -- Parse the next statement and recursively call parseStatementsUntilBrace
+    _ -> parseStmt tokens >>= \(stmt, rest) ->
+         parseStatementsUntilBrace rest (acc ++ [stmt])
 
 -------------------------------------------------------------------------------------------------- Assignment Statement Delegate Function
 
@@ -139,24 +171,6 @@ parseDeclaration dataType tokens = case tokens of
 
 -------------------------------------------------------------------------------------------------- Conditional Statement Delegate Function
 
---, // The conditional expression contains an if tokens. followed by a parenthesized expression, 
---, // then a block of statements that is contained within curly braces. There is also an optional 
---, // Which contains an else after the if statements right paren which encloses a block of statements.
---, // That is also contained within curly braces. 
---
---, // In the case of an else if statement, The conditional body should just contain the if statement 
---, // That is followed by the else.
--- if (x > 1) { 
---    x = 1;
---    y = 1; // The loop body can contain multiple statements
---    y = 2;   
--- } else if (x > 2) { // And if-else statement is parsed such that it is an Else statement with an If statement as its body 
---    x = 3;
--- } else { // Normal else statements will just contain a block of statements following them
---    x = 4;
--- }
---
-
 -- parseConditional is a delegator function called by parseStmt to parse statements determined to be
 -- conditional statements. It returns a ParserResult that contains either the parsed statement and the
 -- remaining tokens or an error.
@@ -174,22 +188,9 @@ parseConditional tokens = case tokens of
         Right (IfStmt condExpr ifBody elseStmt, remainingTokens)  
     _ -> Left (InvalidSyntax "Expected 'if' keyword")
 
-
--- parseBlock is a helper function that parses a block of statements enclosed in curly braces. It returns 
--- a ParserResult that contains either the parsed statements and the remaining tokens or an error.
-parseBlock :: LexedTokens -> ParserResult ([Stmt], LexedTokens)
-parseBlock tokens = case tokens of
-    (TLbrace : rest) ->
-        -- Parse the statements inside the block until a closing brace is encountered
-        -- statements are accumulated into a list until the closing brace is found
-        parseStatementsUntilBrace rest [] >>= \(stmts, TRbrace : afterBlock) ->
-            
-        -- Return the list of statements and the remaining tokens
-        Right (stmts, afterBlock)
-    _ -> Left (InvalidSyntax "Expected opening brace")
-
--- parseOptionalElse is a helper function that parses an optional else statement. It returns a 
--- ParserResult that contains either the parsed statements and the remaining tokens or an error.
+-- parseOptionalElse is a helper function that parses an optional else statement. Else If statements
+-- are treated as else statments that contain an If statement in their body. It returns a ParserResult 
+-- that contains either the parsed statements and the remaining tokens or an error.
 parseOptionalElse :: LexedTokens -> ParserResult ([Stmt], LexedTokens)
 parseOptionalElse tokens = case tokens of
 
@@ -211,16 +212,23 @@ parseOptionalElse tokens = case tokens of
     -- No else found
     _ -> Right ([], tokens)
 
--- parseStatementsUntilBrace is a helper function that parses statements until a closing brace is encountered.
-parseStatementsUntilBrace :: LexedTokens -> [Stmt] -> ParserResult ([Stmt], LexedTokens)
-parseStatementsUntilBrace tokens acc = case tokens of
+-------------------------------------------------------------------------------------------------- While Loop Statement Delegate Function
 
-    -- If a closing brace is encountered, return the accumulated statements
-    (TRbrace : _) -> Right (acc, tokens)
+-- parseWhileLoop is a delegator function called by parseStmt to parse statements determined to be
+-- while loop statements. It returns a ParserResult that contains either the parsed statement and the
+-- remaining tokens or an error.
+parseWhileLoop :: LexedTokens -> ParserResult (Stmt, LexedTokens)
+parseWhileLoop tokens = case tokens of
 
-    -- Parse the next statement and recursively call parseStatementsUntilBrace
-    _ -> parseStmt tokens >>= \(stmt, rest) ->
-         parseStatementsUntilBrace rest (acc ++ [stmt])
+    -- Parse the conditional expression
+    (TWhile : rest) -> parseParenthesizedExpr rest >>= \(condExpr, afterCond) ->
+
+        -- Parse the loop body
+        parseBlock afterCond >>= \(loopBody, remainingTokens) ->
+        Right (WhileStmt condExpr loopBody, remainingTokens)
+
+    _ -> Left (InvalidSyntax "Expected 'while' keyword")
+
 
 -------------------------------------------------------------------------------------------------- Generic Expression Parsing
 
