@@ -198,7 +198,7 @@ parseOptionalElse tokens = case tokens of
 
         -- Parse the conditional and package into an AST else 
         -- statement node as the body of the if statement
-        parseConditional rest >>= \(nestedIfStmt, afterNestedIf) ->
+        parseConditional (TIf : rest) >>= \(nestedIfStmt, afterNestedIf) ->
         Right ([ElseStmt [nestedIfStmt]], afterNestedIf)
 
     -- A TLbrace token follows the TElse
