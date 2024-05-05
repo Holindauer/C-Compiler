@@ -15,7 +15,9 @@ data Token =
   | TIntLit Int | TDoubleLit Double | TIdent String  | TFloatLit Float
 
   -- Operators
-  | TAssign | TPlus | TMinus | TStar | TSlash | TPercent | TEqual | TNotEqual
+  | TAssign | TPlus | TMinus | TStar | TSlash | TPercent | TEqual | TNotEqual 
+  | TPlusAssign | TMinusAssign | TMultAssign | TDivAssign | TModAssign
+  | TIncrement | TDecrement
 
   -- Logical ops and delimiters  
   | TAnd | TOr | TNot | TLparen | TRparen | TLbrace | TRbrace
@@ -40,17 +42,27 @@ data Token =
 lexer :: String -> [Token]
 lexer [] = [TEOF]
 lexer (c:cs)
+  | isSpace c = lexer cs       -- Skip whitespace
+  | isDigit c = lexNumber c cs -- Handle numbers
+  | isAlpha c = lexIdent c cs  -- Handle identifiers
 
-  | isSpace c = lexer cs       -- Skip whitespace w/ recursive call
-  | isDigit c = lexNumber c cs -- Handle numbers using lexNumber func
-  | isAlpha c = lexIdent c cs  -- Handle identifiers using lexIdent func
+  -- overloaded assignment operators
+  | c == '+' && not (null cs) && head cs == '=' = TPlusAssign : lexer (tail cs)
+  | c == '+' && not (null cs) && head cs == '+' = TIncrement : lexer (tail cs)
+  | c == '-' && not (null cs) && head cs == '=' = TMinusAssign : lexer (tail cs)
+  | c == '-' && not (null cs) && head cs == '-' = TDecrement : lexer (tail cs)
+  | c == '*' && not (null cs) && head cs == '=' = TMultAssign : lexer (tail cs)
+  | c == '/' && not (null cs) && head cs == '=' = TDivAssign : lexer (tail cs)
+  | c == '%' && not (null cs) && head cs == '=' = TModAssign : lexer (tail cs)
 
-  -- Handle operators, punctuation, and delimiters which are single characters
+  -- arithmetic operators
   | c == '+' = TPlus : lexer cs
   | c == '-' = TMinus : lexer cs
   | c == '*' = TStar : lexer cs
   | c == '/' = TSlash : lexer cs
   | c == '%' = TPercent : lexer cs
+
+  -- punctuation 
   | c == ';' = TSemicolon : lexer cs
   | c == ',' = TComma : lexer cs
   | c == '(' = TLparen : lexer cs
@@ -58,17 +70,16 @@ lexer (c:cs)
   | c == '{' = TLbrace : lexer cs
   | c == '}' = TRbrace : lexer cs
 
-  -- Comparison operators are handled by checking the next character to 
-  -- determine if it is a single or double character operator
-  | c == '=' && head cs == '=' = TEqual : lexer (tail cs)
+  -- logical/comparison operators
+  | c == '=' && not (null cs) && head cs == '=' = TEqual : lexer (tail cs)
   | c == '=' = TAssign : lexer cs
-  | c == '<' && head cs == '=' = TLessEq : lexer (tail cs)
+  | c == '<' && not (null cs) && head cs == '=' = TLessEq : lexer (tail cs)
   | c == '<' = TLessThan : lexer cs
-  | c == '>' && head cs == '=' = TGreaterEq : lexer (tail cs)
+  | c == '>' && not (null cs) && head cs == '=' = TGreaterEq : lexer (tail cs)
   | c == '>' = TGreaterThan : lexer cs
-  | c == '!' && head cs == '=' = TNotEqual : lexer (tail cs)
+  | c == '!' && not (null cs) && head cs == '=' = TNotEqual : lexer (tail cs)
   | c == '!' = TNot : lexer cs
-  | otherwise = lexer cs  -- Handle unexpected characters or add more cases
+  | otherwise = lexer cs  -- Skip unrecognized characters
 
 -- lexNumber function handles the lexing of numbers. It is called within the lexer function
 -- and is passed the current character being processed and the rest of the string following it
