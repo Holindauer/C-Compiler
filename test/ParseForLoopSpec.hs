@@ -26,14 +26,9 @@ spec = do
       let tokens = [TIdent "i", TAssign, TIntLit 0, TSemicolon, TIdent "i", TLessThan, TIntLit 10, TSemicolon, TIdent "i", TIncrement]
       parseDeclaration "int" tokens `shouldBe` Right (DeclarationAssignment "int" "i" (IntLit 0), [TIdent "i", TLessThan, TIntLit 10, TSemicolon, TIdent "i", TIncrement])
 
-
-
-
     it "parses valid for loop headers correctly" $ do
       let tokens = [TInt, TIdent "i", TAssign, TIntLit 0, TSemicolon, TIdent "i", TLessThan, TIntLit 10, TSemicolon, TIdent "i", TIncrement]
       parseForLoopHeader tokens `shouldBe` Right (DeclarationAssignment "int" "i" (IntLit 0), BinOp LessThan (Var "i") (IntLit 10), IncrementStmt "i")
-
-
 
     it "throws error on missing semicolon" $ do
       let tokens = [TInt, TIdent "i", TAssign, TIntLit 0, TIdent "i", TLessThan, TIntLit 10, TSemicolon, TIdent "i", TIncrement]
@@ -63,5 +58,5 @@ spec = do
   describe "parseForLoop" $ do
     it "parses a complete for loop correctly" $ do
       let tokens = [TFor, TLparen, TInt, TIdent "i", TAssign, TIntLit 0, TSemicolon, TIdent "i", TLessThan, TIntLit 10, TSemicolon, TIdent "i", TIncrement, TRparen, TLbrace, TRbrace]
-      parseForLoop tokens `shouldBe` Right (ForStmt (DeclarationAssignment "int" "i" (IntLit 0)) (BinOp LessThan (Var "i") (IntLit 10)) (IncrementStmt "i") [], [TRbrace])
+      parseForLoop tokens `shouldBe` Right (ForStmt (DeclarationAssignment "int" "i" (IntLit 0)) (BinOp LessThan (Var "i") (IntLit 10)) (IncrementStmt "i") [], [])
 

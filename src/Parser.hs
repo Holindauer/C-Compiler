@@ -4,26 +4,7 @@
 -- the Lexer, converting the outputted list of tokens into an bstract syntax tree (defined
 -- in AST.hs) that represents the program's gramatical structure.
 
-module Parser 
-  ( parseProgram
-  , parseExpr
-  , parseStmt
-  , parseAssignment
-  , parseDeclaration
-  , parseConditional
-  , parseParenthesizedExpr
-  , parseBlock
-  , parseOptionalElse
-  , parseStatementsUntilBrace
-  , parseWhileLoop
-  , parseForLoop
-  , extractForLoopHeader    
-  , parseForLoopHeader      
-  , parseUpdateStatement    
-  , ensureSemicolon         
-  , ParseError(..)  -- Ensure all constructors of ParseError are exported
-  ) where
-
+module Parser where
 
 import Lexer
 import AST
@@ -47,19 +28,19 @@ data ParseError = UnexpectedToken Token
 -- It accepts the list of tokens received from the lexer and returns a ParserResult
 -- @dev Left and Right are constructors of the Either type
 parseProgram :: LexedTokens -> ParserResult ([Stmt], LexedTokens)
-parseProgram [] = Right ([], []) -- Base case: empty program
-parseProgram tokens =            -- Recursive case: parse the program
+parseProgram [] = Right ([], [])
+parseProgram tokens =
 
-    case parseStmt tokens of     -- call parseStmt to parse the next statement from the lexed tokens
-        Left err -> Left err     -- error in parsing the statement
-        Right (stmt, rest) ->    -- successfully parsed first statement
+    -- Parse the next statement and recursively call parseProgram
+    case parseStmt tokens of     
+        Left err -> Left err     
+        Right (Nothing, rest) -> parseProgram rest -- Skip empty statements
+        Right (Just stmt, rest) ->
 
-            -- Recursively parse the rest of the program
+            -- Recursively parse the remaining tokens
             case parseProgram rest of
                 Left err -> Left err
-
-                -- Append the parsed statement to the front of the list of stmts that have been recursively parsed
-                Right (parsedStmts, remainingTokens) -> Right (stmt : parsedStmts, remainingTokens)
+                Right (stmts, remainingTokens) -> Right (stmt : stmts, remainingTokens)
 
 
 -------------------------------------------------------------------------------------------------- Statement Parsing
@@ -68,29 +49,31 @@ parseProgram tokens =            -- Recursive case: parse the program
 -- it then delegates control to the appropriate parsing function. It returns a ParserResult that contains 
 -- either the parsed statement and the remaining tokens or an error.
 -- @dev Stmt is a node type of the AST as defined in AST.hs
-parseStmt :: LexedTokens -> ParserResult (Stmt, LexedTokens)
+parseStmt :: LexedTokens -> ParserResult (Maybe Stmt, LexedTokens)
 parseStmt [] = Left UnexpectedEndOfInput
+parseStmt (TEOF : rest) = Right (Nothing, rest)
 parseStmt (t:ts) = trace ("parseStmt: Processing " ++ show t ++ " with remaining " ++ show ts) $ case t of
 
-    -- Variable declaration statements always start with a data type
-    TInt -> trace "parseStmt: Parsing int declaration" $ parseDeclaration "int" ts
-    TChar -> trace "parseStmt: Parsing char declaration" $ parseDeclaration "char" ts
-    TDouble -> trace "parseStmt: Parsing double declaration" $ parseDeclaration "double" ts
-    TFloat -> trace "parseStmt: Parsing float declaration" $ parseDeclaration "float" ts
-    
-    -- Assignment statements always start with a variable name.
-    TIdent var -> trace ("parseStmt: Parsing assignment for " ++ var) $ parseAssignment var ts
+    -- Handle declarations 
+    TInt -> fmapJust $ parseDeclaration "int" ts
+    TChar -> fmapJust $ parseDeclaration "char" ts
+    TDouble -> fmapJust $ parseDeclaration "double" ts
+    TFloat -> fmapJust $ parseDeclaration "float" ts
 
-    -- Parse conditional statement
-    TIf -> trace "parseStmt: Parsing if statement" $ parseConditional ts
+    -- Handle assignments
+    TIdent var -> fmapJust $ parseAssignment var ts
 
-    -- Parse loop statements
-    TWhile -> trace "parseStmt: Parsing while loop" $ parseWhileLoop ts
-    TFor -> trace "parseStmt: Parsing for loop" $ parseForLoop ts
+    -- Handle conditionals.
+    TIf -> fmapJust $ parseConditional (t:ts)
+
+    -- Handle loops
+    TWhile -> fmapJust $ parseWhileLoop (t:ts)
+    TFor -> fmapJust $ parseForLoop (t:ts)
 
     _ -> Left (InvalidSyntax $ "Invalid statement at token: " ++ show t)
 
-
+fmapJust :: ParserResult (Stmt, LexedTokens) -> ParserResult (Maybe Stmt, LexedTokens)
+fmapJust = fmap (\(stmt, tokens) -> (Just stmt, tokens))
 
 
 -- parseBlock is a helper function that parses a block of multiple statements enclosed in 
@@ -115,13 +98,14 @@ parseBlock tokens = case tokens of
 -- statements within curly braces until a closing brace is encountered.
 parseStatementsUntilBrace :: LexedTokens -> [Stmt] -> ParserResult ([Stmt], LexedTokens)
 parseStatementsUntilBrace tokens acc = case tokens of
-
     -- If a closing brace is encountered, return the accumulated statements
     (TRbrace : _) -> Right (acc, tokens)
 
     -- Parse the next statement and recursively call parseStatementsUntilBrace
-    _ -> parseStmt tokens >>= \(stmt, rest) ->
-         parseStatementsUntilBrace rest (acc ++ [stmt])
+    _ -> parseStmt tokens >>= \(maybeStmt, rest) ->
+         let newAcc = maybe acc (\stmt -> acc ++ [stmt]) maybeStmt
+         in parseStatementsUntilBrace rest newAcc
+
 
 -------------------------------------------------------------------------------------------------- Assignment Statement Delegate Function
 
@@ -167,7 +151,6 @@ parseDeclaration dataType tokens = case tokens of
                 Left err -> Left err
            else
                Left (InvalidSyntax "parseDeclaration: Missing semicolon in declaration")
-
     _ -> Left (InvalidSyntax "parseDeclaration: Invalid declaration format")
 
 
@@ -188,7 +171,7 @@ parseConditional tokens = case tokens of
 
         -- Package the collected components into an AST if statement node
         Right (IfStmt condExpr ifBody elseStmt, remainingTokens)  
-    _ -> Left (InvalidSyntax "Expected 'if' keyword")
+    _ -> Left (InvalidSyntax "parseConditional: Expected 'if' keyword")
 
 -- parseOptionalElse is a helper function that parses an optional else statement. Else If statements
 -- are treated as else statments that contain an If statement in their body. It returns a ParserResult 
@@ -256,6 +239,7 @@ parseForLoop (TFor : rest) = trace "Starting parseForLoop" $  -- TFor token not 
 
         -- Package the parsed components into an AST for statement node
         Right (ForStmt initStmt condExpr updateStmt loopBody, remainingTokens))
+        
 parseForLoop _ = Left (InvalidSyntax "parseForLoop: Expected 'for' followed by '('")
 
 
@@ -265,7 +249,11 @@ extractForLoopHeader :: LexedTokens -> ParserResult ([Token], LexedTokens)
 extractForLoopHeader tokens =
     case tokens of
         (TLparen : rest) ->  -- Confirm the list starts with TLparen and process the rest
+
+            -- Find the closing parenthesis and extract the tokens inside
             let (headerTokens, afterHeader) = break (== TRparen) rest
+
+            -- Check if the closing parenthesis is found
             in if null afterHeader
                then Left (InvalidSyntax "Expected closing parenthesis for for loop header")
                else -- Successfully found TRparen, skip it using tail
@@ -302,9 +290,6 @@ parseForLoopHeader (TInt: rest) = do
     else Left (InvalidSyntax "parseForLoopHeader: Extra tokens in for loop header")
 parseForLoopHeader _ =  Left (InvalidSyntax "parseForLoopHeader: Invalid for loop header")
 
-
-
-    
 
 -- Helper to ensure and consume a semicolon, returning the rest of the tokens
 ensureSemicolon :: LexedTokens -> ParserResult LexedTokens

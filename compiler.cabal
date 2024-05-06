@@ -61,6 +61,7 @@ test-suite compiler-test
   main-is: Spec.hs
   other-modules:
       LexerSpec
+      LexerThenParserSpec
       ParseAssignmentSpec
       ParseConditionalSpec
       ParseDeclarationSpec
