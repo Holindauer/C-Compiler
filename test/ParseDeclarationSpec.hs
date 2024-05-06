@@ -35,21 +35,10 @@ spec = do
 
     it "fails on missing semicolon in simple declaration" $ do
       let tokens = [TIdent "x"]
-      let expected = Left (InvalidSyntax "Invalid declaration format")
+      let expected = Left (InvalidSyntax "parseDeclaration: Invalid declaration format")
       parseDeclaration "int" tokens `shouldBe` expected
 
     it "fails on missing semicolon after initialization" $ do
       let tokens = [TIdent "x", TAssign, TIntLit 10]
-      let expected = Left MissingSemicolon
+      let expected = Left (InvalidSyntax "parseDeclaration: Missing semicolon in declaration")
       parseDeclaration "int" tokens `shouldBe` expected
-
-    it "fails on extra tokens after simple declaration" $ do
-      let tokens = [TIdent "x", TSemicolon, TIdent "extra"]
-      let expected = Left (UnexpectedToken (TIdent "extra"))
-      parseDeclaration "int" tokens `shouldBe` expected
-
-    it "fails on extra tokens after declaration with initialization" $ do
-      let tokens = [TIdent "x", TAssign, TIntLit 10, TSemicolon, TIdent "extra"]
-      let expected = Left (UnexpectedToken (TIdent "extra"))
-      parseDeclaration "int" tokens `shouldBe` expected
-

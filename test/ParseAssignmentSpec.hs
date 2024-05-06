@@ -34,5 +34,5 @@ spec = do
 
     it "fails on invalid right-hand expression" $ do
       let tokens = [TIdent "x", TAssign, TIf, TSemicolon]
-      parseAssignment "x" (tail tokens) `shouldBe` Left (InvalidSyntax "Invalid primary expression")
+      parseAssignment "x" (tail tokens) `shouldBe` Left (InvalidSyntax "parsePrimaryExpr: Invalid primary expression")
 

@@ -153,32 +153,22 @@ parseAssignment _ _ = Left (InvalidSyntax "Malformed assignment statement")
 -- parseAssignment is a delegator function called by parseStmt to parse statments determined to
 -- be declarations of variables. 
 parseDeclaration :: String -> LexedTokens -> ParserResult (Stmt, LexedTokens)
-parseDeclaration dataType tokens = trace ("parseDeclaration: " ++ dataType ++ " with tokens " ++ show tokens) $ case tokens of
-
-    -- Simple declaration
+parseDeclaration dataType tokens = case tokens of
+    -- Simple Declaration: int x;
     (TIdent var : TSemicolon : rest) ->
-        trace ("Handling simple declaration of " ++ var) $
-        if null rest
-        then Right (SimpleDeclaration dataType (Var var), rest)
-        else trace ("Unexpected tokens after simple declaration: " ++ show rest) $
-             Left (UnexpectedToken (head rest))
+        Right (SimpleDeclaration dataType (Var var), rest)
 
-    -- Declaration with assignment
+    -- Declaration with Assignment: float f = 3.14;
     (TIdent var : TAssign : exprTokens) ->
-        let (exprBeforeSemi, remainingAfterSemi) = break (== TSemicolon) exprTokens
-        in trace ("Handling declaration with assignment for " ++ var ++ ", expression tokens: " ++ show exprBeforeSemi) $
-           if null remainingAfterSemi
-           then Left MissingSemicolon
-           else 
-               case parseExpr exprBeforeSemi of
-                   Right (expr, _) -> if null (tail remainingAfterSemi)
-                                      then Right (DeclarationAssignment dataType var expr, tail remainingAfterSemi)
-                                      else trace ("Extra tokens after assignment: " ++ show (tail remainingAfterSemi)) $
-                                           Left (UnexpectedToken (head (tail remainingAfterSemi)))
-                   Left err -> Left err
-    _ -> trace ("Invalid token sequence for declaration: " ++ show tokens) $
-         Left (InvalidSyntax "Invalid declaration format")
+        let (beforeSemi, afterSemi) = break (== TSemicolon) exprTokens
+        in if not (null afterSemi) then
+            case parseExpr beforeSemi of
+                Right (expr, _) -> Right (DeclarationAssignment dataType var expr, tail afterSemi)
+                Left err -> Left err
+           else
+               Left (InvalidSyntax "parseDeclaration: Missing semicolon in declaration")
 
+    _ -> Left (InvalidSyntax "parseDeclaration: Invalid declaration format")
 
 
 -------------------------------------------------------------------------------------------------- Conditional Statement Delegate Function
@@ -249,52 +239,72 @@ parseWhileLoop tokens = case tokens of
 -- for loop statements. It returns a ParserResult that contains either the parsed statement and the
 -- remaining tokens or an error.
 parseForLoop :: LexedTokens -> ParserResult (Stmt, LexedTokens)
-parseForLoop (TFor : TLparen : rest) = trace "Starting parseForLoop" $ 
+parseForLoop (TFor : rest) = trace "Starting parseForLoop" $  -- TFor token not includer in rest
 
     -- Extract the tokens inside the parentheses of the for loop header
+    -- rest should contain [TLparen, .... , TRparen, TLbrace, ..., TRbrace]
     extractForLoopHeader rest >>= \(headerTokens, afterHeader) ->
     trace ("Header tokens: " ++ show headerTokens) (
         
-        -- Parse the three components of the for loop header
+        -- Parse the three components of the for loop header. Note that headerTokens should 
+        -- now contain the tokens inside the parentheses but not including them.
         parseForLoopHeader headerTokens >>= \(initStmt, condExpr, updateStmt) ->
 
-        -- Parse the loop body
+        -- Parse the loop body. Note that the after header tokens should now contain
+        -- the loop body enclosed in curly braces.
         parseBlock afterHeader >>= \(loopBody, remainingTokens) ->
 
         -- Package the parsed components into an AST for statement node
         Right (ForStmt initStmt condExpr updateStmt loopBody, remainingTokens))
-parseForLoop _ = Left (InvalidSyntax "Expected 'for' followed by '('")
+parseForLoop _ = Left (InvalidSyntax "parseForLoop: Expected 'for' followed by '('")
 
 
 -- Extracts tokens inside the parentheses of the for loop header
+-- Input tokens list expected to start with [TLparen, .... , TRparen, TLbrace, ..., TRbrace]
 extractForLoopHeader :: LexedTokens -> ParserResult ([Token], LexedTokens)
-extractForLoopHeader tokens = 
+extractForLoopHeader tokens =
+    case tokens of
+        (TLparen : rest) ->  -- Confirm the list starts with TLparen and process the rest
+            let (headerTokens, afterHeader) = break (== TRparen) rest
+            in if null afterHeader
+               then Left (InvalidSyntax "Expected closing parenthesis for for loop header")
+               else -- Successfully found TRparen, skip it using tail
+                    -- Also ensure there is a token following the closing parenthesis to handle correctly
+                    traceShow ("Header tokens inside parentheses:", headerTokens) $
+                    traceShow ("Remaining tokens after header:", tail afterHeader) $
+                    Right (headerTokens, tail afterHeader)
+        _ -> Left (InvalidSyntax "extractForLoopHeader: Expected opening parenthesis at the start of for loop header")
 
-    -- Break the tokens at the closing parenthesis
-    let (headerTokens, rest) = break (== TRparen) tokens
-    in if null rest
-       then Left (InvalidSyntax "Expected closing parenthesis for for loop header")
-       else Right (headerTokens, tail rest) -- tail func skips the closing parenthesis
 
 -- Parses the three components of a for loop header
+-- For loop header always expect to contain an int declaration init statement, a 
+-- conditional expression, and an update statement.
 parseForLoopHeader :: LexedTokens -> ParserResult (Stmt, Expr, Stmt)
-parseForLoopHeader tokens = do
+parseForLoopHeader (TInt: rest) = do
 
     -- parse the initialization statement
-    (initStmt, afterInit) <- parseStmt tokens
-    afterInitChecked <- ensureSemicolon afterInit 
+    (initStmt, afterInit) <- parseDeclaration "int" rest
 
     -- parse the conditional expression
-    (condExpr, afterCond) <- parseExpr afterInitChecked
-    afterCondChecked <- ensureSemicolon afterCond 
+    (condExpr, afterCond) <- parseExpr afterInit >>= \(expr, remainingTokens) ->
+
+        -- Ensure a semicolon follows the conditional expression
+        case remainingTokens of
+            (TSemicolon : rest) -> Right (expr, rest)
+            _ -> Left (InvalidSyntax "parseForLoopHeader: Expected semicolon after conditional expression")
 
     -- parse the update statement   
-    (updateStmt, afterUpdate) <- parseUpdateStatement afterCondChecked
+    (updateStmt, afterUpdate) <- parseUpdateStatement afterCond
 
     -- Package the parsed components into an AST for statement node
     if null afterUpdate
     then Right (initStmt, condExpr, updateStmt)
-    else Left (InvalidSyntax "Extra tokens in for loop header")
+    else Left (InvalidSyntax "parseForLoopHeader: Extra tokens in for loop header")
+parseForLoopHeader _ =  Left (InvalidSyntax "parseForLoopHeader: Invalid for loop header")
+
+
+
+    
 
 -- Helper to ensure and consume a semicolon, returning the rest of the tokens
 ensureSemicolon :: LexedTokens -> ParserResult LexedTokens
@@ -308,30 +318,30 @@ parseUpdateStatement tokens = case tokens of
     (TIdent var : TIncrement : rest) -> 
         if null rest 
         then Right (IncrementStmt var, rest)
-        else Left (InvalidSyntax "No additional tokens expected after increment")
+        else Left (InvalidSyntax "parseUpdateStatement: No additional tokens expected after increment")
 
     -- Post decrement
     (TIdent var : TDecrement : rest) ->
         if null rest 
         then Right (DecrementStmt var, rest)
-        else Left (InvalidSyntax "No additional tokens expected after decrement")
+        else Left (InvalidSyntax "parseUpdateStatement: No additional tokens expected after decrement")
 
     -- Pre increment 
     (TIncrement : TIdent var : rest) ->
         if null rest 
         then Right (IncrementStmt var, rest)
-        else Left (InvalidSyntax "No additional tokens expected after increment")
+        else Left (InvalidSyntax "parseUpdateStatement: No additional tokens expected after increment")
     
     -- Pre decrement
     (TDecrement : TIdent var : rest) ->
         if null rest 
         then Right (DecrementStmt var, rest)
-        else Left (InvalidSyntax "No additional tokens expected after decrement")
+        else Left (InvalidSyntax "parseUpdateStatement: No additional tokens expected after decrement")
 
     -- Unexpected token handling
     (token : _) -> trace ("Unexpected token in update statement: " ++ show token) $
          Left (UnexpectedToken token)
-    _ -> Left (InvalidSyntax "Invalid or missing update statement in for loop header")
+    _ -> Left (InvalidSyntax "parseUpdateStatement: Invalid or missing update statement in for loop header")
 
 
 -------------------------------------------------------------------------------------------------- Generic Expression Parsing
@@ -378,7 +388,7 @@ parsePrimaryExpr (token : rest) = case token of
     TFloatLit f -> Right (FloatLit f, rest)
     TDoubleLit d -> Right (DoubleLit d, rest)
     TIdent var -> Right (Var var, rest)
-    _ -> Left (InvalidSyntax "Invalid primary expression")
+    _ -> Left (InvalidSyntax "parsePrimaryExpr: Invalid primary expression")
 
 -- continueParsingBinaryExpr is called within parseExpr to continue an expression that is determined to
 -- be a binary expression. It returns a ParserResult that contains either the parsed expression and the
