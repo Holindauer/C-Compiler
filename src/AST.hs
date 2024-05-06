@@ -1,10 +1,4 @@
-module AST
-  ( Op(..)
-  , UnaryOp(..)
-  , Expr(..)
-  , Stmt(..)
-  , Program
-  ) where
+module AST where
 
 -- Binary operators
 data Op = Add | Subtract | Multiply | Divide | Modulus
@@ -27,6 +21,10 @@ data Expr
   | UnaryOp UnaryOp Expr
   deriving (Eq, Show)
 
+  -- In your AST.hs file, you might add:
+data Function = Function String String [(String, String)] [Stmt]
+    deriving (Eq, Show)
+
 -- Statements and structure of a C-like program
 data Stmt
   = ExprStmt Expr
@@ -40,6 +38,7 @@ data Stmt
   | ElseStmt [Stmt]                        -- else statement with body statements (Else If Statements are Else statements whose body is an If statement)
   | WhileStmt Expr [Stmt]                  -- while loop with condition and body statements
   | ForStmt Stmt Expr Stmt [Stmt]          -- for loop with init, condition, update, and body statements
+  | Return Expr                            -- return statement with expression
   deriving (Eq, Show)
 
 type Program = [Stmt]

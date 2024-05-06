@@ -8,8 +8,12 @@ import Data.Char (isDigit, isAlpha, isSpace, isAlphaNum)
 -- This module defines the tokens that the lexer will recognize
 -- The lexer function will convert a string into a list of Tsokens
 data Token =
-    -- Data types
-    TInt | TChar | TDouble | TFloat       
+
+  -- main/functions
+  TMain | TReturn |
+
+  -- Data types
+  TInt | TChar | TDouble | TFloat | TVoid
 
   -- Literals and identifiers
   | TIntLit Int | TDoubleLit Double | TIdent String  | TFloatLit Float
@@ -110,6 +114,9 @@ lexIdent c cs = case ident of
     "else" -> TElse : lexer rest
     "for" -> TFor : lexer rest
     "while" -> TWhile : lexer rest
+    "main" -> TMain : lexer rest
+    "void" -> TVoid : lexer rest
+    "return" -> TReturn : lexer rest
     _ -> TIdent ident : lexer rest
 
   -- This where clause will split the full identifier from the rest of the string. The remaining

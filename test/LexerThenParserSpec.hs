@@ -16,9 +16,9 @@ spec = do
   describe "Lexer and Parser Integration" $ do
     -- Test case for a simple integer declaration
     it "parses a simple integer declaration" $ do
-      let sourceCode = "int x;"
+      let sourceCode = "int main(void) { int x; return 0; }"
       let tokens = lexer sourceCode
-      let expectedTokens = [TInt, TIdent "x", TSemicolon, TEOF]
+      let expectedTokens = [TInt, TMain, TLparen, TVoid, TRparen, TLbrace, TInt, TIdent "x", TSemicolon, TReturn, TIntLit 0, TSemicolon, TRbrace, TEOF]
       tokens `shouldBe` expectedTokens
 
       let parsed = parseProgram tokens
@@ -27,9 +27,9 @@ spec = do
 
     -- Test case for a declaration with an assignment
     it "parses an integer declaration with an assignment" $ do
-      let sourceCode = "int x = 5;"
+      let sourceCode = "int main(void) { int x = 5; return 0; }"
       let tokens = lexer sourceCode
-      let expectedTokens = [TInt, TIdent "x", TAssign, TIntLit 5, TSemicolon, TEOF]
+      let expectedTokens = [TInt, TMain, TLparen, TVoid, TRparen, TLbrace, TInt, TIdent "x", TAssign, TIntLit 5, TSemicolon, TReturn, TIntLit 0, TSemicolon, TRbrace, TEOF]
       tokens `shouldBe` expectedTokens
 
       let parsed = parseProgram tokens
@@ -38,11 +38,10 @@ spec = do
 
     -- Test case for a conditional statement with a block
     it "parses a simple if statement with a block" $ do
-      let sourceCode = "if (x < 5) { x = x + 1; }"
+      let sourceCode = "int main(void) { if (x < 5) { x = x + 1; } return 0; }"
       let tokens = lexer sourceCode
-      let expectedTokens = [TIf, TLparen, TIdent "x", TLessThan, TIntLit 5, TRparen, TLbrace, TIdent "x", TAssign, TIdent "x", TPlus, TIntLit 1, TSemicolon, TRbrace, TEOF]
+      let expectedTokens = [TInt, TMain, TLparen, TVoid, TRparen, TLbrace, TIf, TLparen, TIdent "x", TLessThan, TIntLit 5, TRparen, TLbrace, TIdent "x", TAssign, TIdent "x", TPlus, TIntLit 1, TSemicolon, TRbrace, TReturn, TIntLit 0, TSemicolon, TRbrace, TEOF]
       tokens `shouldBe` expectedTokens
-
 
       let parsed = parseProgram tokens
       let expectedAst = Right ([IfStmt (BinOp LessThan (Var "x") (IntLit 5)) [AssignStmt "x" (BinOp Add (Var "x") (IntLit 1))] []], [])
@@ -50,9 +49,9 @@ spec = do
 
     -- Test case for a simple while loop
     it "parses a simple while loop" $ do
-      let sourceCode = "while (x < 5) { x = x + 1; }"
+      let sourceCode = "int main(void) { while (x < 5) { x = x + 1; } return 0; }"
       let tokens = lexer sourceCode
-      let expectedTokens = [TWhile, TLparen, TIdent "x", TLessThan, TIntLit 5, TRparen, TLbrace, TIdent "x", TAssign, TIdent "x", TPlus, TIntLit 1, TSemicolon, TRbrace, TEOF]
+      let expectedTokens = [TInt, TMain, TLparen, TVoid, TRparen, TLbrace, TWhile, TLparen, TIdent "x", TLessThan, TIntLit 5, TRparen, TLbrace, TIdent "x", TAssign, TIdent "x", TPlus, TIntLit 1, TSemicolon, TRbrace, TReturn, TIntLit 0, TSemicolon, TRbrace, TEOF]
       tokens `shouldBe` expectedTokens
 
       let parsed = parseProgram tokens
@@ -62,9 +61,9 @@ spec = do
 
     -- Test case for a simple for loop
     it "parses a simple for loop" $ do
-      let sourceCode = "for (int i = 0; i < 5; i++) { x = x + 1; }"
+      let sourceCode = "int main(void) { for (int i = 0; i < 5; i++) { x = x + 1; } return 0; }"
       let tokens = lexer sourceCode
-      let expectedTokens = [TFor, TLparen, TInt, TIdent "i", TAssign, TIntLit 0, TSemicolon, TIdent "i", TLessThan, TIntLit 5, TSemicolon, TIdent "i", TIncrement, TRparen, TLbrace, TIdent "x", TAssign, TIdent "x", TPlus, TIntLit 1, TSemicolon, TRbrace, TEOF]
+      let expectedTokens = [TInt, TMain, TLparen, TVoid, TRparen, TLbrace, TFor, TLparen, TInt, TIdent "i", TAssign, TIntLit 0, TSemicolon, TIdent "i", TLessThan, TIntLit 5, TSemicolon, TIdent "i", TIncrement, TRparen, TLbrace, TIdent "x", TAssign, TIdent "x", TPlus, TIntLit 1, TSemicolon, TRbrace, TReturn, TIntLit 0, TSemicolon, TRbrace, TEOF]
       tokens `shouldBe` expectedTokens
       
       let parsed = parseProgram tokens
@@ -81,7 +80,7 @@ spec = do
     --- while (y > 0) { y = y - 1; }
     ---
     it "parses a small program" $ do
-        let sourceCode = "int x = 10; float y = 20; for (int i = 0; i < 5; i++) { x = x + x; } if (x < 5) { x = x + 1; } while (y > 0) { y = y - 1; }"
+        let sourceCode = "int main(void) { int x = 10; float y = 20; for (int i = 0; i < 5; i++) { x = x + x; } if (x < 5) { x = x + 1; } while (y > 0) { y = y - 1; } return 0; }"
         let tokens = lexer sourceCode
         let parsed = parseProgram tokens
         let expectedAst = Right ([DeclarationAssignment "int" "x" (IntLit 10)

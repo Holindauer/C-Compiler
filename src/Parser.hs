@@ -29,14 +29,24 @@ data ParseError = UnexpectedToken Token
 -- @dev Left and Right are constructors of the Either type
 parseProgram :: LexedTokens -> ParserResult ([Stmt], LexedTokens)
 parseProgram [] = Right ([], [])
-parseProgram tokens =
 
+-- Parse into Main function
+parseProgram (TInt : TMain : TLparen : TVoid : TRparen : TLbrace : tokens) = 
+
+    -- parse and return the interior of the main function
+    -- there should be no tokens left after parsing the main function
+    parseProgram tokens >>= \(stmts, remainingTokens) ->
+        if null remainingTokens
+        then Right (stmts, remainingTokens)
+        else Left (InvalidSyntax "Unexpected tokens after main function")
+        
+-- parse interior of main fucn 'int main(void) {'
+parseProgram tokens = do
     -- Parse the next statement and recursively call parseProgram
     case parseStmt tokens of     
         Left err -> Left err     
         Right (Nothing, rest) -> parseProgram rest -- Skip empty statements
         Right (Just stmt, rest) ->
-
             -- Recursively parse the remaining tokens
             case parseProgram rest of
                 Left err -> Left err
@@ -51,7 +61,8 @@ parseProgram tokens =
 -- @dev Stmt is a node type of the AST as defined in AST.hs
 parseStmt :: LexedTokens -> ParserResult (Maybe Stmt, LexedTokens)
 parseStmt [] = Left UnexpectedEndOfInput
-parseStmt (TEOF : rest) = Right (Nothing, rest)
+parseStmt (TEOF : rest) = Right (Nothing, rest)                             -- handle end of program file
+parseStmt (TReturn : TIntLit 0 : TSemicolon : rest) = Right (Nothing, rest) -- handle return 0; as end of program
 parseStmt (t:ts) = trace ("parseStmt: Processing " ++ show t ++ " with remaining " ++ show ts) $ case t of
 
     -- Handle declarations 
@@ -69,6 +80,9 @@ parseStmt (t:ts) = trace ("parseStmt: Processing " ++ show t ++ " with remaining
     -- Handle loops
     TWhile -> fmapJust $ parseWhileLoop (t:ts)
     TFor -> fmapJust $ parseForLoop (t:ts)
+
+    -- Right brace indicates end of main function
+    TRbrace -> Right (Nothing, ts) -- Skip closing brace
 
     _ -> Left (InvalidSyntax $ "Invalid statement at token: " ++ show t)
 
