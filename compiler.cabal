@@ -28,7 +28,6 @@ library
       AST
       CodeGenerator
       Lexer
-      Lib
       Parser
   other-modules:
       Paths_compiler

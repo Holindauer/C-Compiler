@@ -18,7 +18,7 @@ generateBssSection stmts = foldl' generateBssText "" stmts -- foldl' == left fol
       -- reserve stack space for uninitialized variables at declaration
       SimpleDeclaration dataType (Var varName) -> 
         let
-          label = varName ++ "_label"    -- set the label for the variable
+          label = "\t" ++  varName ++ "_label"    -- set the label for the variable
           size = dataTypeToSize dataType -- get the size of the data type
         in bssAccumulator ++ label ++ ": " ++ size ++ "\n"
      
@@ -27,7 +27,7 @@ generateBssSection stmts = foldl' generateBssText "" stmts -- foldl' == left fol
       -- Here we are just allocating memory for later.
       DeclarationAssignment dataType varName _ ->
         let
-          label = varName ++ "_label"
+          label = "\t" ++ varName ++ "_label"
           size = dataTypeToSize dataType
         in bssAccumulator ++ label ++ ": " ++ size ++ "\n" 
         
