@@ -19,6 +19,8 @@ generateCode program =
 writeToFile :: FilePath -> String -> IO ()
 writeToFile path content = writeFile path content
 
+-------------------------------------------------------------------------------------------------- .bss section generation
+
 -- generateBssSection perfroms a left fold over the list of statements returned by the parser
 -- It locates all variable declarations at all levels of indentation within the program, and 
 -- generates the corresponding BSS section in NASM assembly syntax. 
@@ -81,3 +83,5 @@ dataTypeToSize dataType = case dataType of
   "char" -> "resb 1"   -- 1 char (1 byte)
   _ -> error "Unsupported data type"
 
+
+-------------------------------------------------------------------------------------------------- .text section generation
