@@ -26,6 +26,7 @@ source-repository head
 library
   exposed-modules:
       AST
+      CodeGenerator
       Lexer
       Lib
       Parser
@@ -38,6 +39,7 @@ library
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
       base >=4.7 && <5
+    , containers
     , hspec
   default-language: Haskell2010
 
@@ -53,6 +55,7 @@ executable compiler-exe
   build-depends:
       base >=4.7 && <5
     , compiler
+    , containers
     , hspec
   default-language: Haskell2010
 
@@ -60,6 +63,7 @@ test-suite compiler-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      CodeGenerateBssSpec
       LexerSpec
       LexerThenParserSpec
       ParseAssignmentSpec
@@ -76,5 +80,6 @@ test-suite compiler-test
   build-depends:
       base
     , compiler
+    , containers
     , hspec
   default-language: Haskell2010

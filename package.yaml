@@ -22,6 +22,7 @@ description:         Please see the README on GitHub at <https://github.com/gith
 dependencies:
 - base >= 4.7 && < 5
 - hspec
+- containers  
 
 ghc-options:
 - -Wall
@@ -47,6 +48,7 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - compiler
+    - containers
 
 tests:
   compiler-test:
@@ -56,5 +58,6 @@ tests:
       - base
       - compiler  # this should match the name of your library
       - hspec
+      - containers
     tools:
       hspec-discover: {}
