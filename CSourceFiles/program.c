@@ -3,23 +3,30 @@
 
 int main(void){
 
-    int x = 10;
+    int a = 10;
+    char b;
 
-    if(x > 5){
-        x = 5;
+
+    if(a > 5){
+        a = 5;
+        int c = 1;
     }else{
-        x = 10;
+        int m = 10;
     }
 
-    char k = 'a';
+    for (int d = 0; d < 10; d++)
+    {
+        a = a + 1;
 
-    int K;
+        int e = 10;
+    }
 
-    int l;
+    while (a < 20)
+    {
+        a = a + 1;
+        float f = 20;
+    }
 
-    float y = 10.5; 
-
-    double z = 10.5;
 
     return 0;
 }
