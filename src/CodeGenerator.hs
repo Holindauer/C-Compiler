@@ -5,6 +5,75 @@ import AST
 import Data.List (foldl')
 import qualified Data.Map as Map
 
+-- Code Genetor Design and Implementation Strategy:
+-- The Code generator is used to transalate the list of statements returned by the Parser into NASM x86-64 assembly 
+-- code. 
+
+-- The general design of the code generator is to first determine how much stack space is needed for all declared 
+-- variables within the program and create a .bss section within the assembly file that allocates such space to the
+-- variables names that match that which is found in the source file. Then to transalte each statement into a series 
+-- of NASM assembly instructions that use the allocated stack space to store the output of computation.
+--
+-- A subroutine of instructions for each statement in the program will be collected into the _start entry point for the
+-- program.  Thus the _start entry point will contain sequential calls to subroutines that correspond to each statement
+-- AST node in the collected statements list. 
+--
+-- There are four types of subroutine template that will be filled in with the specific information relavant to the 
+-- operation being performed in the statement and called within the _start entry point:
+--
+--   1. Assignment 
+--   2. Conditional
+--   3. For Loop
+--   4. While Loop
+--
+-- It should be noted that only Assignment subroutines will change the state of the program. The other subroutines will 
+-- determine control flow and repetition of other subroutines.
+--
+-- As Assignment statement will be transalted into the text of a subroutine that contains two steps. The first is to evaluate
+-- the expression on the right hand side of the statement into an intermediate value register. The second step is to store 
+-- the value that was placed into the intermediate register into the appropritate l-value variable name of which memory was 
+-- allocated for in the .bss section
+--
+-- Now we must discuss how expressions are to be allocate. When an l-value expression is encounted, a seperate subroutine must
+-- be written that will recursively chain subroutines together based on the grammatical structure that was preserved in the
+-- AST. This means that the expression will be evaluated in a depth first manner.
+--
+-- There are four cases for what can be assigned to a variable:
+--
+--   1. A literal value
+--   2. Another variable's value
+--   3. The evaluation of a unary operation
+--   4. The evaluation of a binary operation
+--
+-- In the context of the depth first subroutine chain, an expression that is a literall value or another variable is considered
+-- to be the base case. If this is the case, the value of the literal or variable is moved into an intermediate register for the 
+-- next depth up to use in their assignment or expression evalulation. 
+-- 
+-- If the expression is a unary operation, two steps will ensue. The first is that the expression that is the argument of the unary
+-- operation will be evaluated by calling another subroutine that will place the evaluation into an intermediate output register.
+-- Then, the output in that register will have the unary operation applied to it and returned to an output register as well.
+-- This is to say that everytime one of the 4 expression possibilities is encountered within the depths of a statement evaluation, 
+-- a further subroutine will be created to handle and evaluate it, with literal and variable expression being the base case. This 
+-- forms a sort of pseudo-recursive chain of subroutines that evaluate depth first the entirety of the expression.
+--
+-- If the expression is a binary operation, the same process will occur as with the unary operation, but with the added step of
+-- allocating dynamic space for the intermediate outputs of the lhs expr and rhs expr. This is to ensure that the same output
+-- register can be used for the final output without having to worry about overwriting the intermediate values. First the lhs
+-- will be evaluated, then the rhs, similar to an in order traversal of a binary tree. The outputs collected into the dynamically
+-- allocated space will then be used as the arguments of the specific operation that makes up the binary operation. The output of
+-- this computation will be placed into the output register and returned to the calling subroutine.
+--
+-- after the depth first evaluated is complete, the value will be moved into the variable declared in the .bss section that corresponds
+-- to the assignment statement in question.
+-- 
+-- Once the assignments statement and expression evaluation template subroutine generator functions are implemented, conditional statements
+-- will be implementable by writing a subroutine that will recursively implement the expression evaluation of the condition, then jumping 
+-- a subroutine that contains subroutines for each statement in the body of the conditional. This will be done using the same depth wise
+-- evaluation process but applied to sequential statements in the body of the conditional.
+--
+-- Loops will be a matter of implementing a conditional statement in the way described above where the body of the loop is called until
+-- the end condition is met.
+
 
 -- Master code generation function
 generateCode :: Program -> String

@@ -1,5 +1,12 @@
 module AST where
 
+-- AST.hs contains the definition of the abstract syntax tree (AST) for the C-like language.
+-- A statement is considered either a single line of code punctuated by a semicolon or a block
+-- of code w/ associated header and enclosed in curly braces (for loop, while loopm conditional),
+-- Each statement within a source file is combined into a list of stmts, which is the Program type.
+-- A stmt is a type that contains the gramatical structure of the statement, including all nested 
+-- statements and expressions. 
+
 -- Binary operators
 data Op = Add | Subtract | Multiply | Divide | Modulus
         | LessThan | GreaterThan | LessEq | GreaterEq | Equal | NotEqual
@@ -16,14 +23,11 @@ data Expr
   = IntLit Integer
   | FloatLit Float
   | DoubleLit Double
+  | CharLit Char  
   | Var String
   | BinOp Op Expr Expr
   | UnaryOp UnaryOp Expr
   deriving (Eq, Show)
-
-  -- In your AST.hs file, you might add:
-data Function = Function String String [(String, String)] [Stmt]
-    deriving (Eq, Show)
 
 -- Statements and structure of a C-like program
 data Stmt

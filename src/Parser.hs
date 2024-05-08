@@ -1,7 +1,7 @@
 {-# LANGUAGE LambdaCase #-}
 
--- Parser.h contains parser functions for the C subset langauge.  The parser is used after 
--- the Lexer, converting the outputted list of tokens into an bstract syntax tree (defined
+-- Parser.h contains functions for parsing the C subset langauge.  The parser is used after 
+-- the Lexer, converting the outputted list of tokens into an abstract syntax tree (defined
 -- in AST.hs) that represents the program's gramatical structure.
 
 module Parser where
@@ -28,7 +28,7 @@ data ParseError = UnexpectedToken Token
 -- It accepts the list of tokens received from the lexer and returns a ParserResult
 -- @dev Left and Right are constructors of the Either type
 parseProgram :: LexedTokens -> ParserResult ([Stmt], LexedTokens)
-parseProgram [] = Right ([], [])
+parseProgram [] = Right ([], []) -- Empty program
 
 -- Parse into Main function
 parseProgram (TInt : TMain : TLparen : TVoid : TRparen : TLbrace : tokens) = 
@@ -40,7 +40,7 @@ parseProgram (TInt : TMain : TLparen : TVoid : TRparen : TLbrace : tokens) =
         then Right (stmts, remainingTokens)
         else Left (InvalidSyntax "Unexpected tokens after main function")
         
--- parse interior of main fucn 'int main(void) {'
+-- parse interior of main func following 'int main(void) {'
 parseProgram tokens = do
     -- Parse the next statement and recursively call parseProgram
     case parseStmt tokens of     
@@ -86,6 +86,7 @@ parseStmt (t:ts) = trace ("parseStmt: Processing " ++ show t ++ " with remaining
 
     _ -> Left (InvalidSyntax $ "Invalid statement at token: " ++ show t)
 
+-- Helper function to map over the Just value of a ParserResult
 fmapJust :: ParserResult (Stmt, LexedTokens) -> ParserResult (Maybe Stmt, LexedTokens)
 fmapJust = fmap (\(stmt, tokens) -> (Just stmt, tokens))
 
@@ -123,9 +124,9 @@ parseStatementsUntilBrace tokens acc = case tokens of
 
 -------------------------------------------------------------------------------------------------- Assignment Statement Delegate Function
 
--- -- parseAssignment is a delegator function called by parseStmt to parse statments determined to 
--- -- be assignments of preinitialized variables. It returns a ParserResult that contains either the
--- -- parsed statement and the remaining tokens or an error
+-- parseAssignment is a delegator function called by parseStmt to parse statments determined to 
+-- be assignments of preinitialized variables. It returns a ParserResult that contains either the
+-- parsed statement and the remaining tokens or an error
 parseAssignment :: String -> LexedTokens -> ParserResult (Stmt, LexedTokens)
 parseAssignment var (TAssign : rest) = 
     case break (== TSemicolon) rest of -- Break the tokens at the semicolon
@@ -133,6 +134,7 @@ parseAssignment var (TAssign : rest) =
         -- Expression followed by a semicolon
         (exprTokens, semicolon : finalTokens) -> 
 
+            -- Parse the expression and package it into an AST assignment statement node
             case parseExpr exprTokens of
                 Right (expr, _) -> Right (AssignStmt var expr, finalTokens)
                 Left err -> Left err
@@ -150,6 +152,7 @@ parseAssignment _ _ = Left (InvalidSyntax "Malformed assignment statement")
 
 -- parseAssignment is a delegator function called by parseStmt to parse statments determined to
 -- be declarations of variables. 
+-- @dev The type declaration is consumed prior to calling this function
 parseDeclaration :: String -> LexedTokens -> ParserResult (Stmt, LexedTokens)
 parseDeclaration dataType tokens = case tokens of
     -- Simple Declaration: int x;
@@ -158,8 +161,12 @@ parseDeclaration dataType tokens = case tokens of
 
     -- Declaration with Assignment: float f = 3.14;
     (TIdent var : TAssign : exprTokens) ->
+
+        -- Break the tokens at the semicolon
         let (beforeSemi, afterSemi) = break (== TSemicolon) exprTokens
         in if not (null afterSemi) then
+
+            -- Parse the expression and package it into an AST declaration assignment statement node
             case parseExpr beforeSemi of
                 Right (expr, _) -> Right (DeclarationAssignment dataType var expr, tail afterSemi)
                 Left err -> Left err
@@ -196,9 +203,10 @@ parseOptionalElse tokens = case tokens of
     -- A TIf token follows the TElse
     (TElse : TIf : rest) ->
 
-        -- Parse the conditional and package into an AST else 
-        -- statement node as the body of the if statement
+        -- Parse "nested" conditional 
         parseConditional (TIf : rest) >>= \(nestedIfStmt, afterNestedIf) ->
+
+        -- Package the collected components into an AST else statement node
         Right ([ElseStmt [nestedIfStmt]], afterNestedIf)
 
     -- A TLbrace token follows the TElse
@@ -206,6 +214,8 @@ parseOptionalElse tokens = case tokens of
 
         -- Parse the block of statements following the else keyword
         parseBlock rest >>= \(elseBody, afterElseBlock) ->
+
+        -- Package the collected components into an AST else statement node
         Right ([ElseStmt elseBody], afterElseBlock)
 
     -- No else found
@@ -231,12 +241,11 @@ parseWhileLoop tokens = case tokens of
 
 -------------------------------------------------------------------------------------------------- For Loop Statement Delegate Function
 
-
 -- parseForLoop is a delegator function called by parseStmt to parse statements determined to be
 -- for loop statements. It returns a ParserResult that contains either the parsed statement and the
 -- remaining tokens or an error.
 parseForLoop :: LexedTokens -> ParserResult (Stmt, LexedTokens)
-parseForLoop (TFor : rest) = trace "Starting parseForLoop" $  -- TFor token not includer in rest
+parseForLoop (TFor : rest) = trace "Starting parseForLoop" $  -- TFor token not included in rest
 
     -- Extract the tokens inside the parentheses of the for loop header
     -- rest should contain [TLparen, .... , TRparen, TLbrace, ..., TRbrace]
