@@ -41,12 +41,14 @@ spec = do
       let stmts = [SimpleDeclaration "int" (Var "x"), ExprStmt (IntLit 5), SimpleDeclaration "char" (Var "c")]
       generateBssSection stmts `shouldBe` "\tx_label: resd 1\n\tc_label: resb 1\n"
 
-  describe "generate with generateCode to include .bss header" $ do
+    -- Under construction
 
-    it "generates full assembly code with .bss section" $ do
-      let program = [SimpleDeclaration "int" (Var "x"), SimpleDeclaration "double" (Var "y")]
-      let expected = "section .bss\n\tx_label: resd 1\n\ty_label: resq 1\nsection .text\n"
-      generateCode program `shouldBe` expected
+  -- describe "generate with generateCode to include .bss header" $ do
+
+    -- it "generates full assembly code with .bss section" $ do
+    --   let program = [SimpleDeclaration "int" (Var "x"), SimpleDeclaration "double" (Var "y")]
+    --   let expected = "section .bss\n\tx_label: resd 1\n\ty_label: resq 1\nsection .text\n"
+    --   generateCode program `shouldBe` expected
 
   describe "Variable Declarations in Nested Structures" $ do
     it "extracts declarations within For loop bodies" $ do

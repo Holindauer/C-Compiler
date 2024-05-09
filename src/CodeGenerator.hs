@@ -2,7 +2,7 @@ module CodeGenerator where
 
 import System.IO
 import AST
-import Data.List (foldl')
+import Data.List (foldl', zipWith)
 import qualified Data.Map as Map
 
 -- Code Genetor Design and Implementation Strategy:
@@ -10,8 +10,8 @@ import qualified Data.Map as Map
 -- code. 
 
 -- The general design of the code generator is to first determine how much stack space is needed for all declared 
--- variables within the program and create a .bss section within the assembly file that allocates such space to the
--- variables names that match that which is found in the source file. Then to transalte each statement into a series 
+-- variables within the program and create a .bss section within the assembly file that allocates such space to 
+-- variable names that match that which is found in the source file. Then to transalte each statement into a series 
 -- of NASM assembly instructions that use the allocated stack space to store the output of computation.
 --
 -- A subroutine of instructions for each statement in the program will be collected into the _start entry point for the
@@ -80,8 +80,12 @@ generateCode :: Program -> String
 generateCode program =
   let
     bssSection = generateBssSection program
+    textTuples = generateTextSection program
+
+    -- placeholder for actual assembly of text section from textTuples
+    textSection = concatMap (\(call, def) -> call ++ def) textTuples
   in
-    "section .bss\n" ++ bssSection ++ "section .text\n"
+    "section .bss\n" ++ bssSection ++ "section .text\n" ++ textSection
 
 
 -- Writes the assembly code to a file
@@ -154,3 +158,64 @@ dataTypeToSize dataType = case dataType of
 
 
 -------------------------------------------------------------------------------------------------- .text section generation
+
+-- generateTextSection returns a list of tuples containing subroutine calls and their definitions
+generateTextSection :: [Stmt] -> [(String, String)]
+generateTextSection stmts = map (uncurry generateStmtSubroutine) indexedStmts -- uncurry unpacks tuple
+  where
+    -- zipWith is used to pair each statement with its index so to create unique subroutine names
+    indexedStmts = zipWith (,) [0..] stmts
+    
+
+-- generateStmtSubroutine creates the subroutine call and definition for a single statement.
+-- @param the statement number and the statement itself
+generateStmtSubroutine :: Integer -> Stmt -> (String, String)
+generateStmtSubroutine stmtNum stmt = case stmt of
+
+  -- literal assignment
+  AssignStmt varName (IntLit value) -> literalAssignmentSubroutine stmtNum varName (show value)
+  AssignStmt varName (FloatLit value) -> literalAssignmentSubroutine stmtNum varName (show value)
+  AssignStmt varName (DoubleLit value) -> literalAssignmentSubroutine stmtNum varName (show value)
+  AssignStmt varName (CharLit value) -> literalAssignmentSubroutine stmtNum varName (show value)
+
+  -- variable assignment
+  AssignStmt lValue (Var rValue) -> variableAssignmentSubroutine lValue rValue
+
+
+  _ -> error "Unsupported statement type"
+
+
+-- literalAssignmentSubroutine generates the NASM assembly code for an assignment of a literal value
+-- to a variable that has been preinitialized within the .bss section. The generated subroutine does
+-- not require any arguments as the value to be assigned is hardcoded into the subroutine. As such, the
+-- subroutine will only contain the instructions to move the hardcoded value into the variable's memory
+-- The varable is the name of the variable it was assignbed to + "_label" and the value is the literal
+-- value that was assigned to it
+-- literalAssignmentSubroutine accepts the variable name, the literal value and an integer representing the
+-- number of subroutines that have already been generated. The integer is to ensure that all subroutines 
+-- have unique names
+-- literalAssignmentSubroutine will return a tuple containing the call to the subroutine and the subroutine
+-- definition itself
+literalAssignmentSubroutine :: Integer -> String -> String -> (String, String)
+literalAssignmentSubroutine stmtNum varName literalValue =
+  let
+    subroutineName = varName ++ "_literal_assignment_" ++ show stmtNum
+    subroutineCall = "\tcall " ++ subroutineName ++ "\n"
+    subroutineDefinition = subroutineName ++ ":\n" ++
+      "\tmov rax, " ++ literalValue ++ "\n" ++
+      "\tmov [" ++ varName ++ "_label], rax\n" ++
+      "\tret\n"
+  in (subroutineCall, subroutineDefinition)
+
+
+  -- placeholder for variableAssignmentSubroutine
+variableAssignmentSubroutine :: String -> String -> (String, String)
+variableAssignmentSubroutine lValue rValue =
+  let
+    subroutineName = lValue ++ "_to_" ++ rValue
+    subroutineCall = "\tcall " ++ subroutineName ++ "\n"
+    subroutineDefinition = subroutineName ++ ":\n" ++
+      "\tmov rax, [" ++ rValue ++ "_label]\n" ++
+      "\tmov [" ++ lValue ++ "_label], rax\n" ++
+      "\tret\n"
+  in (subroutineCall, subroutineDefinition)
