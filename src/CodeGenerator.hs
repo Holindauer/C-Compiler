@@ -1,3 +1,6 @@
+{-# LANGUAGE RankNTypes #-}
+
+
 module CodeGenerator where
 
 import System.IO
@@ -11,59 +14,48 @@ import qualified Data.Map as Map
 
 -- The general design of the code generator is to first determine how much stack space is needed for all declared 
 -- variables within the program and create a .bss section within the assembly file that allocates such space to 
--- variable names that match that which is found in the source file. Then to transalte each statement into a series 
--- of NASM assembly instructions that use the allocated stack space to store the output of computation.
+-- variable names that match those in the source file. Then to transalte each statement in that list into a series 
+-- of NASM assembly subroutines that when called in sequence will execute the program.
 --
--- A subroutine of instructions for each statement in the program will be collected into the _start entry point for the
--- program.  Thus the _start entry point will contain sequential calls to subroutines that correspond to each statement
--- AST node in the collected statements list. 
+-- The calls to each subroutine of instructions for each statement in the program will be collected into the _start 
+-- entry point for the program.  
 --
--- There are four types of subroutine template that will be filled in with the specific information relavant to the 
--- operation being performed in the statement and called within the _start entry point:
+-- There are four main types of subroutine for each statement in the program: 
 --
 --   1. Assignment 
---   2. Conditional
---   3. For Loop
---   4. While Loop
+--   2. Expression Evaluation
+--   3. Conditional
+--   4. For Loop
+--   5. While Loop
 --
 -- It should be noted that only Assignment subroutines will change the state of the program. The other subroutines will 
--- determine control flow and repetition of other subroutines.
+-- determine control flow, intermediate evaluations, and repetition of other subroutines.
 --
--- As Assignment statement will be transalted into the text of a subroutine that contains two steps. The first is to evaluate
+-- The process for converting Assignment statement into the text of a subroutine involves two steps. The first is to evaluate
 -- the expression on the right hand side of the statement into an intermediate value register. The second step is to store 
--- the value that was placed into the intermediate register into the appropritate l-value variable name of which memory was 
--- allocated for in the .bss section
+-- the value that was placed into the intermediate register into the appropritate variable in the .bss section
 --
--- Now we must discuss how expressions are to be allocate. When an l-value expression is encounted, a seperate subroutine must
--- be written that will recursively chain subroutines together based on the grammatical structure that was preserved in the
--- AST. This means that the expression will be evaluated in a depth first manner.
+-- The process for evaluating an expression is potentially complex. In its simplest cases, the expression is a literal or the
+-- value of a variable. If the expression involves unary or binary operations, the evaluation will involve recursively chaining
+-- subroutines together based on the grammatical structure of the AST in a depth first manner. Calling the head subroutine of
+-- the chain will form a sort ofpseudo-recursive chain of subroutine calls that will execute the evaluation of the expression, 
+-- placing it into an intermediate output register to be used for the ultimate assignment into the correct variable in the .bss 
+-- section.
 --
--- There are four cases for what can be assigned to a variable:
+-- The process for translating an expression statement into a subroutine is outlined as follows:
 --
---   1. A literal value
---   2. Another variable's value
---   3. The evaluation of a unary operation
---   4. The evaluation of a binary operation
+-- In either of these cases, if an expression is to be evaluated, a subroutine definition will be created with a unique name 
+-- that will be called within the subroutine where the expression was encounted. Literals/Variables are the base case of this 
+-- process, Unary/Binary are recursive cases. Each subroutine will evaluate the expression to which its operation is applied 
+-- and move its value into an intermediate output register. Literal/Variable expression will only do this. If the expression is unary
+-- or Binary, a call to another subroutine will be made to handle it, with its associated definition being created at this point as 
+-- well. When that subroutine returns, the value of the expresssion will have be placed into an intermdiate outptu register that the 
+-- calling subroutine will use as an argument for its own operation. The only caveat to this concerns binary operations, because 
+-- their evaluation requires the evaluation of a left and right hand side expression, implicating the need for a different strategy
+-- for saving these two values. To resolve this, the evaluation of the left hand side will be placed into dynamically allocated 
+-- space that will be freed once binary operation has been applied to both values.
 --
--- In the context of the depth first subroutine chain, an expression that is a literall value or another variable is considered
--- to be the base case. If this is the case, the value of the literal or variable is moved into an intermediate register for the 
--- next depth up to use in their assignment or expression evalulation. 
--- 
--- If the expression is a unary operation, two steps will ensue. The first is that the expression that is the argument of the unary
--- operation will be evaluated by calling another subroutine that will place the evaluation into an intermediate output register.
--- Then, the output in that register will have the unary operation applied to it and returned to an output register as well.
--- This is to say that everytime one of the 4 expression possibilities is encountered within the depths of a statement evaluation, 
--- a further subroutine will be created to handle and evaluate it, with literal and variable expression being the base case. This 
--- forms a sort of pseudo-recursive chain of subroutines that evaluate depth first the entirety of the expression.
---
--- If the expression is a binary operation, the same process will occur as with the unary operation, but with the added step of
--- allocating dynamic space for the intermediate outputs of the lhs expr and rhs expr. This is to ensure that the same output
--- register can be used for the final output without having to worry about overwriting the intermediate values. First the lhs
--- will be evaluated, then the rhs, similar to an in order traversal of a binary tree. The outputs collected into the dynamically
--- allocated space will then be used as the arguments of the specific operation that makes up the binary operation. The output of
--- this computation will be placed into the output register and returned to the calling subroutine.
---
--- after the depth first evaluated is complete, the value will be moved into the variable declared in the .bss section that corresponds
+-- After the depth first evaluated is complete, the value will be moved into the variable declared in the .bss section that corresponds
 -- to the assignment statement in question.
 -- 
 -- Once the assignments statement and expression evaluation template subroutine generator functions are implemented, conditional statements
@@ -105,11 +97,13 @@ generateBssSection stmts = foldl' generateBssText "" stmts -- left fold over the
     generateBssText :: String -> Stmt -> String
     generateBssText bssAccumulator stmt = case stmt of
 
+      -- NOTE: dataType, varName are Strings
+
       -- Simple variable declaration
-      SimpleDeclaration dataType (Var varName) -> 
+      SimpleDeclaration dataType (Var varName) ->  
         appendBss bssAccumulator dataType varName
       
-      -- Variable declaration with assignment
+      -- Variable declaration with assignment (assignment handled in .text section)
       DeclarationAssignment dataType varName _ ->
         appendBss bssAccumulator dataType varName
       
@@ -161,61 +155,242 @@ dataTypeToSize dataType = case dataType of
 
 -- generateTextSection returns a list of tuples containing subroutine calls and their definitions
 generateTextSection :: [Stmt] -> [(String, String)]
-generateTextSection stmts = map (uncurry generateStmtSubroutine) indexedStmts -- uncurry unpacks tuple
+generateTextSection stmts = map (uncurry generateStmtSr) indexedStmts -- uncurry unpacks tuple
   where
-    -- zipWith is used to pair each statement with its index so to create unique subroutine names
+    -- zipWith is used to pair each statement with its index to create unique subroutine names
     indexedStmts = zipWith (,) [0..] stmts
     
-
--- generateStmtSubroutine creates the subroutine call and definition for a single statement.
+-- generateStmtSubroutine creates a subroutine call and its associated definition for a single statement.
 -- @param the statement number and the statement itself
-generateStmtSubroutine :: Integer -> Stmt -> (String, String)
-generateStmtSubroutine stmtNum stmt = case stmt of
-
+generateStmtSr :: Integer -> Stmt -> (String, String)
+generateStmtSr index stmt = case stmt of
   -- literal assignment
-  AssignStmt varName (IntLit value) -> literalAssignmentSubroutine stmtNum varName (show value)
-  AssignStmt varName (FloatLit value) -> literalAssignmentSubroutine stmtNum varName (show value)
-  AssignStmt varName (DoubleLit value) -> literalAssignmentSubroutine stmtNum varName (show value)
-  AssignStmt varName (CharLit value) -> literalAssignmentSubroutine stmtNum varName (show value)
+  AssignStmt varName (IntLit value) -> genLiteralAssignmentSr index varName (show value) -- Show converts to string
+  AssignStmt varName (FloatLit value) -> genLiteralAssignmentSr index varName (show value)
+  AssignStmt varName (DoubleLit value) -> genLiteralAssignmentSr index varName (show value)
+  AssignStmt varName (CharLit value) -> genLiteralAssignmentSr index varName (show value)
 
   -- variable assignment
-  AssignStmt lValue (Var rValue) -> variableAssignmentSubroutine lValue rValue
+  AssignStmt lValue (Var rValue) -> genVariableAssignmentSr index lValue rValue
+
+  -- assignment of more complex expressions
+  AssignStmt lValue expr -> genExprAssignmentSr index lValue expr
 
 
   _ -> error "Unsupported statement type"
 
+-------------------------------------------------------------------------------------------------- Asssignment Subroutine generation
 
--- literalAssignmentSubroutine generates the NASM assembly code for an assignment of a literal value
--- to a variable that has been preinitialized within the .bss section. The generated subroutine does
--- not require any arguments as the value to be assigned is hardcoded into the subroutine. As such, the
--- subroutine will only contain the instructions to move the hardcoded value into the variable's memory
--- The varable is the name of the variable it was assignbed to + "_label" and the value is the literal
--- value that was assigned to it
--- literalAssignmentSubroutine accepts the variable name, the literal value and an integer representing the
--- number of subroutines that have already been generated. The integer is to ensure that all subroutines 
--- have unique names
--- literalAssignmentSubroutine will return a tuple containing the call to the subroutine and the subroutine
--- definition itself
-literalAssignmentSubroutine :: Integer -> String -> String -> (String, String)
-literalAssignmentSubroutine stmtNum varName literalValue =
+-- genLiteralAssignmentSr generates the NASM assembly code for an assignment of a literal value
+-- to a variable that has been preinitialized within the .bss section. The subroutine will only contain 
+-- the instructions to move the hardcoded value into the variable's memory.
+--
+-- @param The function accepts the variable name, the literal value and an index for which statement within
+-- the broader program this is. This index is passed in to ensure that all subroutines have unique names.
+-- @return tuple containing the call to the subroutine and the subroutine definition itself
+genLiteralAssignmentSr :: Integer -> String -> String -> (String, String)
+genLiteralAssignmentSr index varName literalValue =
   let
-    subroutineName = varName ++ "_literal_assignment_" ++ show stmtNum
+    -- set unique subroutine name from var name and index
+    subroutineName = varName ++ "_literal_assignment_" ++ show index
+    
+    -- set call to subroutine
     subroutineCall = "\tcall " ++ subroutineName ++ "\n"
-    subroutineDefinition = subroutineName ++ ":\n" ++
-      "\tmov rax, " ++ literalValue ++ "\n" ++
-      "\tmov [" ++ varName ++ "_label], rax\n" ++
-      "\tret\n"
+    
+    -- set subroutine definition
+    subroutineDefinition = subroutineName ++ ":\n" ++   -- subroutine label
+      "\tmov rax, " ++ literalValue ++ "\n" ++          -- move literal value into rax
+      "\tmov [" ++ varName ++ "_label], rax\n" ++       -- move rax into variable memory
+      "\tret\n"                                         -- return from subroutine
+
+  -- return call and def in tup
   in (subroutineCall, subroutineDefinition)
 
 
-  -- placeholder for variableAssignmentSubroutine
-variableAssignmentSubroutine :: String -> String -> (String, String)
-variableAssignmentSubroutine lValue rValue =
+-- genVariableAssignmentSr generates the NASM assembly code for an assignment of a variable value
+-- to another variable that has been preinitialized within the .bss section. The subroutine will contain 
+-- instructions for moving the value of the right hand side variable into the left hand side variable's memory.
+--
+-- @param the function accepts the left hand side variable name and the right hand side variable name
+-- @return tuple containing the call to the subroutine and the subroutine definition itself
+genVariableAssignmentSr :: Integer -> String -> String -> (String, String)
+genVariableAssignmentSr index lValue rValue =
   let
-    subroutineName = lValue ++ "_to_" ++ rValue
-    subroutineCall = "\tcall " ++ subroutineName ++ "\n"
-    subroutineDefinition = subroutineName ++ ":\n" ++
-      "\tmov rax, [" ++ rValue ++ "_label]\n" ++
-      "\tmov [" ++ lValue ++ "_label], rax\n" ++
+    -- set unique subroutine name from lValue, rValue, and index
+    subroutineName = lValue ++ "_to_" ++ rValue ++ "_" ++ show index
+    
+    -- set call to subroutine 
+    subroutineCall = "\tcall " ++ subroutineName ++ "\n"  
+
+    -- set subroutine definition
+    subroutineDefinition = subroutineName ++ ":\n" ++   -- subroutine label
+      "\tmov rax, [" ++ rValue ++ "_label]\n" ++        -- move value of rValue into rax
+      "\tmov [" ++ lValue ++ "_label], rax\n" ++        -- move rax into lValue memory
       "\tret\n"
   in (subroutineCall, subroutineDefinition)
+
+-- genExprAssignment generates the NASM assembly code for an assignment of a complex expression
+-- to a variable that has been preinitialized within the .bss section. The subroutine will contain instructions
+-- for evaluating the expression and moving the result into the variable's memory.
+genExprAssignmentSr :: Integer -> String -> Expr -> (String, String)
+genExprAssignmentSr index lValue expr = 
+  let
+    -- Set unique subroutine names
+    assignSrName = lValue ++ "_assignment_" ++ show index
+    exprEvalSrName = lValue ++ "_expr_eval_" ++ show index
+
+    -- Call to generate the expression evaluation subroutine
+    (exprEvalCode, _) = genExprEvalSr exprEvalSrName 0 expr
+
+    -- Set the subroutine definition for the assignment that calls to the expression evaluation subroutine
+    assignSrCall = "\tcall " ++ assignSrName ++ "\n"
+    assignmentSrDef = assignSrName ++ ":\n" ++
+                      "\tcall " ++ exprEvalSrName ++ "\n" ++
+                      "\tmov rax, [rbp + " ++ lValue ++ "_label]\n" ++  -- Move the result of the expression eval into rax
+                      "\tmov [" ++ lValue ++ "_label], rax\n" ++        -- Move rax into lValue memory
+                      "\tret\n"                                         -- Return from subroutine
+
+    -- Combine the expression eval subroutine definition with the assignment subroutine definition
+    fullSrDef = assignmentSrDef ++ exprEvalCode
+
+  in (assignSrCall, fullSrDef)
+
+-------------------------------------------------------------------------------------------------- Expression Evaluation Subroutine generation
+
+-- genExprSr recursively chains subroutine definitions together for evaluating expressions in a depth first manner. 
+-- Literal/Variable expressions are the base case. Unary/Binary expressions will result in recursively chaining of
+-- subroutines to handle the evaluation of the subexpressions.
+-- @param The base name of expression evaluation subroutine, the number of subroutines that have already been chained 
+-- from the base to get to this one, and the current expr/subexpr.
+genExprEvalSr :: String -> Integer -> Expr -> (String, Integer)
+genExprEvalSr baseName index expr = case expr of
+
+  -- Base Case: expr is an integer literal
+  IntLit value ->
+    createLiteralSubroutine baseName index value "Int"
+
+  -- Base Case: expr is a float literal
+  FloatLit value ->
+    createLiteralSubroutine baseName index value "Float"
+
+  -- Base Case: expr is a double literal
+  DoubleLit value ->
+    createLiteralSubroutine baseName index value "Double"
+
+  -- Base Case: expr is a char literal
+  CharLit value ->
+    createLiteralSubroutine baseName index value "Char"
+
+  -- Base Case: expr is a variable
+  Var varName ->
+    let
+      -- set unique subroutine name derived from base name, varName, and index
+      subroutineName = baseName ++ "_var_" ++ varName ++ "_" ++ show index
+
+      -- set subroutine definition 
+      subroutineDef = subroutineName ++ ":\n" ++                   -- subroutine label
+                      "\tmov rax, [" ++ varName ++ "_label]\n" ++  -- move value of varName into rax
+                      "\tret\n"                                    -- return from subroutine
+
+    -- return the subroutine definition and the updated index
+    in (subroutineDef, index)
+
+  -- Recursive Case: expr is a unary operation 
+  UnaryOp op subExpr ->
+    let
+      -- recursively evaluate the subexpression. NOTE that the index passed in is incremented
+      (subExprDef, newIndex) = genExprEvalSr baseName (index + 1) subExpr
+
+      -- chain the subroutines together
+
+      -- set unique subroutine name derived from base name, unary op, and index
+      subroutineName = baseName ++ "_unary_" ++ show op ++ "_" ++ show index
+
+      -- set subroutine definition 
+      subroutineDef = subroutineName ++ ":\n" ++  -- subroutine label
+                      unaryOpAsm op ++            -- use unaryOpAsm to generate instructions for specific op
+                      "\tret\n"                   -- return from subroutine
+
+      -- append the subExprDef to the subroutine definition
+      fullSubroutineDef = subroutineDef ++ subExprDef
+
+    -- return the full subroutine definition and the updated index
+    in (fullSubroutineDef, newIndex)
+
+  -- Binary operation
+  BinOp op lhs rhs ->
+    let
+      -- Generate the subroutine names for LHS and RHS evaluations
+      lhsExprEvalSrName = baseName ++ "_lhs_eval_" ++ show (index + 1)
+      rhsExprEvalSrName = baseName ++ "_rhs_eval_" ++ show (index + 2)
+
+      -- Generate subroutine definitions for evaluating LHS and RHS
+      (lhsExprEvalSrDef, lhsLastIndex) = genExprEvalSr baseName (index + 1) lhs
+      (rhsExprEvalSrDef, rhsLastIndex) = genExprEvalSr baseName (lhsLastIndex + 1) rhs
+
+      -- Unique subroutine name for the binary operation
+      binaryOpSrName = baseName ++ "_binary_op_" ++ show op ++ "_" ++ show index
+
+      -- Define the binary operation subroutine
+      binaryOpSrDef = binaryOpSrName ++ ":\n" ++
+
+          -- Evaluate the LHS expression and store the result temporarily
+          "\tcall " ++ lhsExprEvalSrName ++ "\n" ++
+          "\tpush rax\n" ++  -- Store LHS result on the stack
+
+          -- Evaluate the RHS expression
+          "\tcall " ++ rhsExprEvalSrName ++ "\n" ++
+          "\tmov rbx, rax\n" ++  -- Move RHS result to rbx
+          "\tpop rax\n" ++  -- Retrieve LHS result from stack to rax
+
+          -- generate the binary operation instructions using binaryOpAsm
+          binaryOpAsm op ++ 
+          "\tret\n"
+
+      -- Combine the subroutine definitions with the binary operation code
+      fullBinaryOpSrDef = lhsExprEvalSrDef ++ rhsExprEvalSrDef ++ binaryOpSrDef
+
+    -- Return the complete binary operation code and the last index used
+    in (fullBinaryOpSrDef, rhsLastIndex)
+
+  _ -> error "Unsupported expression type"
+
+
+-- Helper function to generate subroutine for movement of literal into rax
+createLiteralSubroutine :: String -> Integer -> Show a => a -> String -> (String, Integer)
+createLiteralSubroutine baseName index value typeName =
+  let
+    -- set unique subroutine name
+    subroutineName = baseName ++ "_lit_" ++ typeName ++ "_" ++ show value ++ "_" ++ show index
+
+    -- set subroutine definition
+    subroutineDef = subroutineName ++ ":\n" ++
+                    "\tmov rax, " ++ show value ++ "\n" ++
+                    "\tret\n"
+  
+  -- return the subroutine definition and the updated index
+  in (subroutineDef, index)
+
+-- unaryOpAsm is a helper function called within genExprEvalSr that generates the 
+-- NASM assembly code for a specific unary operation based on the provided unary op.
+-- It is assumed that the value for which the operation is being applied is already
+-- within the rax register.
+unaryOpAsm :: UnaryOp -> String
+unaryOpAsm op = case op of
+  Neg -> "\tneg rax\n"
+  LogicalNot -> "\tnot rax\n"
+  Increment -> "\tinc rax\n"
+  Decrement -> "\tdec rax\n"
+  _ -> error "Operation not supported"
+
+-- binaryOpAsm is a helper function called within genExprEvalSr that generates the
+-- NASM assembly code for a specific binary operation based on the provided binary op.s
+-- It is assumed that the values for which the operation is being applied are already
+-- within the rax and rbx registers. Commutativity does not apply to this setup.
+binaryOpAsm :: Op -> String
+binaryOpAsm op = case op of
+  Add -> "\tadd rax, rbx\n"
+  Subtract -> "\tsub rax, rbx\n"
+  Multiply -> "\timul rax, rbx\n"
+  Divide -> "\tidiv rbx\n"  -- Assume rbx holds the divisor
+  _ -> error "Operation not supported"
