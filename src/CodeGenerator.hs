@@ -67,7 +67,7 @@ import qualified Data.Map as Map
 -- the end condition is met.
 
 
--- Master code generation function
+-- Master code generation function (currently placeholder)
 generateCode :: Program -> String
 generateCode program =
   let
@@ -165,8 +165,14 @@ generateTextSection stmts = map (uncurry generateStmtSr) indexedStmts -- uncurry
 generateStmtSr :: Integer -> Stmt -> (String, String)
 generateStmtSr index stmt = case stmt of
 
-  -- assignment of more complex expressions
-  AssignStmt lValue expr -> genExprAssignmentSr index lValue expr
+  AssignStmt lValue expr -> 
+    let 
+      assignSrName = lValue ++ "_assignment_" ++ show index
+    in (genAssignmentSr assignSrName index lValue expr) 
+    
+
+--  IfStmt condition thenBody elseBody -> genConditionalSr index condition thenBody elseBody
+
   _ -> error "Unsupported statement type"
 
 -------------------------------------------------------------------------------------------------- Asssignment Subroutine generation
@@ -174,11 +180,10 @@ generateStmtSr index stmt = case stmt of
 -- genExprAssignment generates the NASM assembly code for an assignment of a complex expression
 -- to a variable that has been preinitialized within the .bss section. The subroutine will contain instructions
 -- for evaluating the expression and moving the result into the variable's memory.
-genExprAssignmentSr :: Integer -> String -> Expr -> (String, String)
-genExprAssignmentSr index lValue expr = 
+genAssignmentSr :: String -> Integer -> String -> Expr -> (String, String)
+genAssignmentSr assignSrName index lValue expr = 
   let
     -- Set unique subroutine names
-    assignSrName = lValue ++ "_assignment_" ++ show index
     exprEvalSrName = lValue ++ "_expr_eval_" ++ show index
 
     -- Call to generate the expression evaluation subroutine
@@ -197,6 +202,44 @@ genExprAssignmentSr index lValue expr =
     fullSrDef = assignmentSrDef ++ exprEvalCode
 
   in (assignSrCall, fullSrDef)
+
+-------------------------------------------------------------------------------------------------- Conditional Subroutine generation
+
+-- genConditionalSr :: Integer -> Expr -> [Stmt] -> [Stmt] -> (String, String)
+-- genConditionalSr index condition thenBody elseBody = 
+--   let 
+
+--     -- unique name for conditional subroutine head
+--     conditionSrName = "cond_stmt_" ++ show index
+
+--     -- name for condition eval subroutine
+--     conditionEvalSrName = conditionSrName ++ "_eval_cond_" ++ show index
+
+
+
+--     -- create a subroutine to evaluate the conditional expr
+--     (conditionEvalCode, _) = genExprEvalSr "_eval_condition_" 0 condition
+
+--     -- update index for the 
+
+--     -- using generateStmtSr, create a list of subroutines and their resepcitve calls for the then body
+        
+--     thenBodySr = map (uncurry generateStmtSr) (zip [0..] thenBody)
+
+
+
+-- -- the reason we are usin this function and not generateStmtSr is to ensure that there are 
+-- -- unique names for all statements within the conditional. Currently, when generateStmtSr is called
+-- -- the name is generated based of the type of statement and the index. This means that if we called 
+-- -- generateStmtSr within the conditional, there would be overlap w/ the subsequent indices of the 
+-- -- statements in the broader program. This could potentially cause a double definition for a subroutine
+-- -- if the type of statement is the same as well. Although this could be refacted 
+
+
+-- genCondBodyStmt :: String -> Integer -> Stmt -> (String, String)
+-- genCondBodyStmt baseName index stmt = case stmt of 
+
+
 
 -------------------------------------------------------------------------------------------------- Expression Evaluation Subroutine generation
 

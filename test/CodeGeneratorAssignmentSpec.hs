@@ -13,11 +13,18 @@ spec = do
 
     -- int literal assignment
     it "Integer literal assignment subroutine generation" $ do
+      
+      -- setup test
+      let lValue = "x"
+      let index = 1
+      let assignSrName = lValue ++ "_assignment_" ++ show index
       let intLitExpr = IntLit 42
-      let (call, definition) = genExprAssignmentSr 1 "x" intLitExpr
-
+      let (call, definition) = genAssignmentSr assignSrName index lValue intLitExpr
+      
+      -- ensure the subroutine call is correct
       call `shouldBe` "\tcall x_assignment_1\n"
 
+      -- ensure the subroutine definition is correct
       definition `shouldBe` unlines [
         "x_assignment_1:",
         "\tcall x_expr_eval_1_0",
@@ -31,11 +38,18 @@ spec = do
 
     -- char literal assignment
     it "Character literal assignment subroutine generation" $ do
+      
+      -- setup test
+      let lValue = "y"
+      let index = 2
       let charLitExpr = CharLit 'a'
-      let (call, definition) = genExprAssignmentSr 2 "y" charLitExpr
+      let assignSrName = lValue ++ "_assignment_" ++ show index
+      let (call, definition) = genAssignmentSr assignSrName index lValue charLitExpr
 
+      -- ensure the call is correct
       call `shouldBe` "\tcall y_assignment_2\n"
 
+      -- ensure the definition is correct
       definition `shouldBe` unlines [
         "y_assignment_2:",
         "\tcall y_expr_eval_2_0",
@@ -48,11 +62,18 @@ spec = do
 
     -- float literal assignment
     it "Float literal assignment subroutine generation" $ do
+      
+      -- setup test
+      let lValue = "z"
+      let index = 3
       let floatLitExpr = FloatLit 3.14
-      let (call, definition) = genExprAssignmentSr 3 "z" floatLitExpr
+      let assignSrName = lValue ++ "_assignment_" ++ show index
+      let (call, definition) = genAssignmentSr assignSrName index lValue floatLitExpr
 
+      -- ensure the call is correct
       call `shouldBe` "\tcall z_assignment_3\n"
 
+      -- ensure the definition is correct
       definition `shouldBe` unlines [
         "z_assignment_3:",
         "\tcall z_expr_eval_3_0",
@@ -65,11 +86,18 @@ spec = do
 
     -- double literal assignment
     it "Double literal assignment subroutine generation" $ do
-      let doubleLitExpr = DoubleLit 3.14159
-      let (call, definition) = genExprAssignmentSr 4 "w" doubleLitExpr
 
+      -- setup test
+      let lValue = "w"
+      let index = 4
+      let doubleLitExpr = DoubleLit 3.14159
+      let assignSrName = lValue ++ "_assignment_" ++ show index
+      let (call, definition) = genAssignmentSr assignSrName index lValue doubleLitExpr
+
+      -- ensure the call is correct
       call `shouldBe` "\tcall w_assignment_4\n"
 
+      -- ensure the definition is correct
       definition `shouldBe` unlines [
         "w_assignment_4:",
         "\tcall w_expr_eval_4_0",
@@ -82,11 +110,18 @@ spec = do
 
     -- variable assignment
     it "Variable assignment subroutine generation" $ do
+      
+      -- setup test
+      let lValue = "v"
+      let index = 5
       let varExpr = Var "x"
-      let (call, definition) = genExprAssignmentSr 5 "v" varExpr
+      let assignSrName = lValue ++ "_assignment_" ++ show index
+      let (call, definition) = genAssignmentSr assignSrName index lValue varExpr
 
+      -- ensure the call is correct
       call `shouldBe` "\tcall v_assignment_5\n"
 
+      -- ensure the definition is correct
       definition `shouldBe` unlines [
         "v_assignment_5:",
         "\tcall v_expr_eval_5_0",
@@ -101,12 +136,13 @@ spec = do
 
     -- unary negation operator assignment
     it "Unary operator negation of w/ literal argument" $ do
-
-      -- unary op for negation of a literal
-      let expr = UnaryOp Neg (IntLit 5)
-
-      -- generate the subroutine
-      let (call, definition) = genExprAssignmentSr 2 "z" expr
+      
+      -- seutp test
+      let lValue = "z"
+      let index = 2
+      let expr = UnaryOp Neg (IntLit 5)  -- unary op for negation of a literal
+      let assignSrName = lValue ++ "_assignment_" ++ show index
+      let (call, definition) = genAssignmentSr assignSrName index lValue expr
       
       -- ensure the call is correct
       call `shouldBe` "\tcall z_assignment_2\n"
@@ -133,11 +169,12 @@ spec = do
     -- binary operator assignment
     it "Binary operator addition of w/ two literal arguments" $ do
 
-      -- binary op for addtion of two liters
-      let expr = BinOp Add (IntLit 5) (IntLit 3)
-
-      -- generate the subroutine
-      let (call, definition) = genExprAssignmentSr 1 "z" expr
+      -- setup test      
+      let lValue = "z"
+      let index = 1
+      let expr = BinOp Add (IntLit 5) (IntLit 3) -- binary op for addtion of two liters
+      let assignSrName = lValue ++ "_assignment_" ++ show index
+      let (call, definition) = genAssignmentSr assignSrName index lValue expr
       
       -- ensure the call is correct
       call `shouldBe` "\tcall z_assignment_1\n"
@@ -178,11 +215,12 @@ spec = do
     -- binary operator assignment w/ nested expressions
     it "Code Generator Expression Assignment for Binary Op w/ nested Expressions" $ do
 
-      -- binary op for addtion of two liters
-      let expr = BinOp Add (UnaryOp Increment (IntLit 2)) (BinOp Subtract (IntLit 3) (IntLit 1))
-
-      -- generate the subroutine
-      let (call, definition) = genExprAssignmentSr 1 "z" expr
+      -- setup test 
+      let lValue = "z"
+      let index = 1
+      let expr = BinOp Add (UnaryOp Increment (IntLit 2)) (BinOp Subtract (IntLit 3) (IntLit 1))  -- binary op for addtion of two liters
+      let assignSrName = lValue ++ "_assignment_" ++ show index
+      let (call, definition) = genAssignmentSr assignSrName index lValue expr
       
       -- ensure the call is correct
       call `shouldBe` "\tcall z_assignment_1\n"
