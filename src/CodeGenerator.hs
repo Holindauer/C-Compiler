@@ -208,25 +208,45 @@ genExprAssignmentSr index lValue expr =
 genExprEvalSr :: String -> Integer -> Expr -> (String, Integer)
 genExprEvalSr baseName index expr = case expr of
 
-  -- Base Case: expr is an integer literal
+  -- Base Cases: expr is a literal or variable
   IntLit value ->
-    createLiteralSubroutine baseName index value "Int"
-
-  -- Base Case: expr is a float literal
+    literalEvalSr baseName index value "Int"
   FloatLit value ->
-    createLiteralSubroutine baseName index value "Float"
-
-  -- Base Case: expr is a double literal
+    literalEvalSr baseName index value "Float"
   DoubleLit value ->
-    createLiteralSubroutine baseName index value "Double"
-
-  -- Base Case: expr is a char literal
+    literalEvalSr baseName index value "Double"
   CharLit value ->
-    createLiteralSubroutine baseName index value "Char"
+    literalEvalSr baseName index value "Char"
+  Var varName -> 
+    variableEvalSr baseName index varName
 
-  -- Base Case: expr is a variable
-  Var varName ->
-    let
+  -- Recursive Cases: expr is a unary or binary operation 
+  UnaryOp op subExpr ->
+    unaryOpEvalSr baseName index op subExpr
+  BinOp op lhs rhs ->
+    binaryOpEvalSr baseName index op lhs rhs
+    
+  _ -> error "Unsupported expression type"
+
+
+-- Helper func to generate subroutine that moves a literal value into rax during expressions eval 
+literalEvalSr :: String -> Integer -> Show a => a -> String -> (String, Integer)
+literalEvalSr baseName index value typeName =
+  let
+    -- set unique subroutine name
+    subroutineName = baseName ++ "_lit_" ++ typeName ++ "_" ++ show value ++ "_" ++ show index
+
+    -- set subroutine definition
+    subroutineDef = subroutineName ++ ":\n" ++
+                    "\tmov rax, " ++ show value ++ "\n" ++
+                    "\tret\n"
+  in (subroutineDef, index) -- return subroutine def updated index
+
+
+-- Helper func to generate subroutnie that moves the value of a variable into rax during expression eval
+variableEvalSr :: String -> Integer -> String -> (String, Integer)
+variableEvalSr baseName index varName =
+  let
       -- set unique subroutine name derived from base name, varName, and index
       subroutineName = baseName ++ "_var_" ++ varName ++ "_" ++ show index
 
@@ -238,13 +258,14 @@ genExprEvalSr baseName index expr = case expr of
     -- return the subroutine definition and the updated index
     in (subroutineDef, index)
 
-  -- Recursive Case: expr is a unary operation 
-  UnaryOp op subExpr ->
-    let
+-- Helper func to generate subroutine that evaluates a unary operation recursively by chaining
+-- subroutine definitions for evaluating all subexpressions together. The output of the subexpression 
+-- is stored in the rax register the unary operation is applied.
+unaryOpEvalSr :: String -> Integer -> UnaryOp -> Expr -> (String, Integer)
+unaryOpEvalSr baseName index op subExpr =
+  let
       -- recursively evaluate the subexpression. NOTE that the index passed in is incremented
       (subExprDef, newIndex) = genExprEvalSr baseName (index + 1) subExpr
-
-      -- chain the subroutines together
 
       -- set unique subroutine name derived from base name, unary op, and index
       subroutineName = baseName ++  "_" ++ show index
@@ -260,9 +281,13 @@ genExprEvalSr baseName index expr = case expr of
     -- return the full subroutine definition and the updated index
     in (fullSubroutineDef, newIndex)
 
-  -- Binary operation
-  BinOp op lhs rhs ->
-    let
+-- Helper func to generate a subroutine that evaluates a binary operation recursively by 
+-- generating a chain of subroutine definitions that will evaluate the left and right hand
+-- subexpressions in a depth first manner. The output of the left hand side expression is
+-- stored on the stack before evaluating the rhs. The final result is stored in the rax register.
+binaryOpEvalSr :: String -> Integer -> Op -> Expr -> Expr -> (String, Integer)
+binaryOpEvalSr baseName index op lhs rhs =
+  let
       -- Generate the subroutine names for LHS and RHS evaluations
       lhsExprEvalSrName = baseName ++ "_lhs_eval_" ++ show (index + 1)
       rhsExprEvalSrName = baseName ++ "_rhs_eval_" ++ show (index + 2)
@@ -296,23 +321,6 @@ genExprEvalSr baseName index expr = case expr of
     -- Return the complete binary operation code and the last index used
     in (fullBinaryOpSrDef, rhsLastIndex)
 
-  _ -> error "Unsupported expression type"
-
-
--- Helper function to generate subroutine for movement of literal into rax
-createLiteralSubroutine :: String -> Integer -> Show a => a -> String -> (String, Integer)
-createLiteralSubroutine baseName index value typeName =
-  let
-    -- set unique subroutine name
-    subroutineName = baseName ++ "_lit_" ++ typeName ++ "_" ++ show value ++ "_" ++ show index
-
-    -- set subroutine definition
-    subroutineDef = subroutineName ++ ":\n" ++
-                    "\tmov rax, " ++ show value ++ "\n" ++
-                    "\tret\n"
-  
-  -- return the subroutine definition and the updated index
-  in (subroutineDef, index)
 
 -- unaryOpAsm is a helper function called within genExprEvalSr that generates the 
 -- NASM assembly code for a specific unary operation based on the provided unary op.
