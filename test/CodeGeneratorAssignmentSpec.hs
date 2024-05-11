@@ -13,52 +13,88 @@ spec = do
 
     -- int literal assignment
     it "Integer literal assignment subroutine generation" $ do
-      let (call, definition) = genLiteralAssignmentSr 1 "x" "42"
-      call `shouldBe` "\tcall x_literal_assignment_1\n"
+      let intLitExpr = IntLit 42
+      let (call, definition) = genExprAssignmentSr 1 "x" intLitExpr
+
+      call `shouldBe` "\tcall x_assignment_1\n"
+
       definition `shouldBe` unlines [
-        "x_literal_assignment_1:",
-        "\tmov rax, 42",
+        "x_assignment_1:",
+        "\tcall x_expr_eval_1_0",
+        "\tmov rax, [rbp + x_label]",
         "\tmov [x_label], rax",
+        "\tret",
+        "x_expr_eval_1_lit_Int_42_0:",
+        "\tmov rax, 42",
         "\tret"]
+
 
     -- char literal assignment
     it "Character literal assignment subroutine generation" $ do
-      let (call, definition) = genLiteralAssignmentSr 2 "y" "'a'"
-      call `shouldBe` "\tcall y_literal_assignment_2\n"
+      let charLitExpr = CharLit 'a'
+      let (call, definition) = genExprAssignmentSr 2 "y" charLitExpr
+
+      call `shouldBe` "\tcall y_assignment_2\n"
+
       definition `shouldBe` unlines [
-        "y_literal_assignment_2:",
-        "\tmov rax, 'a'",
+        "y_assignment_2:",
+        "\tcall y_expr_eval_2_0",
+        "\tmov rax, [rbp + y_label]",
         "\tmov [y_label], rax",
+        "\tret",
+        "y_expr_eval_2_lit_Char_'a'_0:",
+        "\tmov rax, 'a'",
         "\tret"]
 
     -- float literal assignment
     it "Float literal assignment subroutine generation" $ do
-      let (call, definition) = genLiteralAssignmentSr 3 "z" "3.14"
-      call `shouldBe` "\tcall z_literal_assignment_3\n"
+      let floatLitExpr = FloatLit 3.14
+      let (call, definition) = genExprAssignmentSr 3 "z" floatLitExpr
+
+      call `shouldBe` "\tcall z_assignment_3\n"
+
       definition `shouldBe` unlines [
-        "z_literal_assignment_3:",
-        "\tmov rax, 3.14",
+        "z_assignment_3:",
+        "\tcall z_expr_eval_3_0",
+        "\tmov rax, [rbp + z_label]",
         "\tmov [z_label], rax",
+        "\tret",
+        "z_expr_eval_3_lit_Float_3.14_0:",
+        "\tmov rax, 3.14",
         "\tret"]
 
     -- double literal assignment
     it "Double literal assignment subroutine generation" $ do
-      let (call, definition) = genLiteralAssignmentSr 4 "w" "3.14"
-      call `shouldBe` "\tcall w_literal_assignment_4\n"
+      let doubleLitExpr = DoubleLit 3.14159
+      let (call, definition) = genExprAssignmentSr 4 "w" doubleLitExpr
+
+      call `shouldBe` "\tcall w_assignment_4\n"
+
       definition `shouldBe` unlines [
-        "w_literal_assignment_4:",
-        "\tmov rax, 3.14",
+        "w_assignment_4:",
+        "\tcall w_expr_eval_4_0",
+        "\tmov rax, [rbp + w_label]",
         "\tmov [w_label], rax",
+        "\tret",
+        "w_expr_eval_4_lit_Double_3.14159_0:",
+        "\tmov rax, 3.14159",
         "\tret"]
 
     -- variable assignment
     it "Variable assignment subroutine generation" $ do
-      let (call, definition) = genVariableAssignmentSr 3 "x" "y"
-      call `shouldBe` "\tcall x_to_y_3\n"
+      let varExpr = Var "x"
+      let (call, definition) = genExprAssignmentSr 5 "v" varExpr
+
+      call `shouldBe` "\tcall v_assignment_5\n"
+
       definition `shouldBe` unlines [
-        "x_to_y_3:",
-        "\tmov rax, [y_label]",
-        "\tmov [x_label], rax",
+        "v_assignment_5:",
+        "\tcall v_expr_eval_5_0",
+        "\tmov rax, [rbp + v_label]",
+        "\tmov [v_label], rax",
+        "\tret",
+        "v_expr_eval_5_var_x_0:",
+        "\tmov rax, [x_label]",
         "\tret"]
 
   describe "Complex Expression Assignment Subroutine Creation" $ do

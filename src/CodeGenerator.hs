@@ -164,70 +164,12 @@ generateTextSection stmts = map (uncurry generateStmtSr) indexedStmts -- uncurry
 -- @param the statement number and the statement itself
 generateStmtSr :: Integer -> Stmt -> (String, String)
 generateStmtSr index stmt = case stmt of
-  -- literal assignment
-  AssignStmt varName (IntLit value) -> genLiteralAssignmentSr index varName (show value) -- Show converts to string
-  AssignStmt varName (FloatLit value) -> genLiteralAssignmentSr index varName (show value)
-  AssignStmt varName (DoubleLit value) -> genLiteralAssignmentSr index varName (show value)
-  AssignStmt varName (CharLit value) -> genLiteralAssignmentSr index varName (show value)
-
-  -- variable assignment
-  AssignStmt lValue (Var rValue) -> genVariableAssignmentSr index lValue rValue
 
   -- assignment of more complex expressions
   AssignStmt lValue expr -> genExprAssignmentSr index lValue expr
-
-
   _ -> error "Unsupported statement type"
 
 -------------------------------------------------------------------------------------------------- Asssignment Subroutine generation
-
--- genLiteralAssignmentSr generates the NASM assembly code for an assignment of a literal value
--- to a variable that has been preinitialized within the .bss section. The subroutine will only contain 
--- the instructions to move the hardcoded value into the variable's memory.
---
--- @param The function accepts the variable name, the literal value and an index for which statement within
--- the broader program this is. This index is passed in to ensure that all subroutines have unique names.
--- @return tuple containing the call to the subroutine and the subroutine definition itself
-genLiteralAssignmentSr :: Integer -> String -> String -> (String, String)
-genLiteralAssignmentSr index varName literalValue =
-  let
-    -- set unique subroutine name from var name and index
-    subroutineName = varName ++ "_literal_assignment_" ++ show index
-    
-    -- set call to subroutine
-    subroutineCall = "\tcall " ++ subroutineName ++ "\n"
-    
-    -- set subroutine definition
-    subroutineDefinition = subroutineName ++ ":\n" ++   -- subroutine label
-      "\tmov rax, " ++ literalValue ++ "\n" ++          -- move literal value into rax
-      "\tmov [" ++ varName ++ "_label], rax\n" ++       -- move rax into variable memory
-      "\tret\n"                                         -- return from subroutine
-
-  -- return call and def in tup
-  in (subroutineCall, subroutineDefinition)
-
-
--- genVariableAssignmentSr generates the NASM assembly code for an assignment of a variable value
--- to another variable that has been preinitialized within the .bss section. The subroutine will contain 
--- instructions for moving the value of the right hand side variable into the left hand side variable's memory.
---
--- @param the function accepts the left hand side variable name and the right hand side variable name
--- @return tuple containing the call to the subroutine and the subroutine definition itself
-genVariableAssignmentSr :: Integer -> String -> String -> (String, String)
-genVariableAssignmentSr index lValue rValue =
-  let
-    -- set unique subroutine name from lValue, rValue, and index
-    subroutineName = lValue ++ "_to_" ++ rValue ++ "_" ++ show index
-    
-    -- set call to subroutine 
-    subroutineCall = "\tcall " ++ subroutineName ++ "\n"  
-
-    -- set subroutine definition
-    subroutineDefinition = subroutineName ++ ":\n" ++   -- subroutine label
-      "\tmov rax, [" ++ rValue ++ "_label]\n" ++        -- move value of rValue into rax
-      "\tmov [" ++ lValue ++ "_label], rax\n" ++        -- move rax into lValue memory
-      "\tret\n"
-  in (subroutineCall, subroutineDefinition)
 
 -- genExprAssignment generates the NASM assembly code for an assignment of a complex expression
 -- to a variable that has been preinitialized within the .bss section. The subroutine will contain instructions
