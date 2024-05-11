@@ -244,8 +244,9 @@ genExprAssignmentSr index lValue expr =
 
     -- Set the subroutine definition for the assignment that calls to the expression evaluation subroutine
     assignSrCall = "\tcall " ++ assignSrName ++ "\n"
+
     assignmentSrDef = assignSrName ++ ":\n" ++
-                      "\tcall " ++ exprEvalSrName ++ "\n" ++
+                      "\tcall " ++ exprEvalSrName ++ "_0" ++ "\n" ++     -- ++ "0" bc we want to call the head of the subroutine chain
                       "\tmov rax, [rbp + " ++ lValue ++ "_label]\n" ++  -- Move the result of the expression eval into rax
                       "\tmov [" ++ lValue ++ "_label], rax\n" ++        -- Move rax into lValue memory
                       "\tret\n"                                         -- Return from subroutine
@@ -304,7 +305,7 @@ genExprEvalSr baseName index expr = case expr of
       -- chain the subroutines together
 
       -- set unique subroutine name derived from base name, unary op, and index
-      subroutineName = baseName ++ "_unary_" ++ show op ++ "_" ++ show index
+      subroutineName = baseName ++  "_" ++ show index
 
       -- set subroutine definition 
       subroutineDef = subroutineName ++ ":\n" ++  -- subroutine label
@@ -329,13 +330,13 @@ genExprEvalSr baseName index expr = case expr of
       (rhsExprEvalSrDef, rhsLastIndex) = genExprEvalSr baseName (lhsLastIndex + 1) rhs
 
       -- Unique subroutine name for the binary operation
-      binaryOpSrName = baseName ++ "_binary_op_" ++ show op ++ "_" ++ show index
+      binaryOpSrName = baseName ++ "_" ++ show index
 
       -- Define the binary operation subroutine
       binaryOpSrDef = binaryOpSrName ++ ":\n" ++
 
           -- Evaluate the LHS expression and store the result temporarily
-          "\tcall " ++ lhsExprEvalSrName ++ "\n" ++
+          "\tcall " ++ baseName ++ "\n" ++
           "\tpush rax\n" ++  -- Store LHS result on the stack
 
           -- Evaluate the RHS expression
