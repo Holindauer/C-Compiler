@@ -217,58 +217,76 @@ genAssignmentSr assignSrName index lValue expr =
 
   in (assignSrCall, fullSrDef)
 
--------------------------------------------------------------------------------------------------- Conditional Subroutine generation
+-------------------------------------------------------------------------------------------------- Conditional Subroutine Generation
 
--- step 1: make subroutine that evals conditional
 
--- step 2: make subroutines for each statement in the body of the conditional
-
--- step 3: make subroutine that executes each statement in the conditional
-
--- steo 4: make subrouinte that will call the condtional eval subroutine and 
---         if its result stored in rax is true, then call the step 3 subroutine
-
--- Note: all nested subroutines within the conditional will be named after the base condSrName
--- genConditionalSr generates subroutines for conditional statements including their evaluation and execution logic
+-- genConditionalSr generates the NASM assembly code for a conditional statement. This involves generating a subroutine
+-- for the evaluation of the conditional expression, a subroutine for the sequential execution of each statement within
+-- the then Body, and a subroutine that will call the conditional eval subroutine and, if the result is true, call the
+-- then body execution subroutine.
 genConditionalSr :: String -> Integer -> Expr -> [Stmt] -> [Stmt] -> (String, String)
 genConditionalSr baseName index condition thenBody elseBody = 
   let 
     
-    -- set uunique subroutine name for the conditional
-    condSrName = baseName ++ "_" ++ show index
-
     -- Step 1: make subroutine that evaluates the conditional expression
-    evalCondSrBaseName = condSrName ++ "_eval_cond_" ++ show index
-    (condEvalSrDef, condEvalSrName, _) = genExprEvalSr evalCondSrBaseName index condition
-
+    condSrName = baseName ++ "_" ++ show index                                            -- name of subroutine chain head
+    evalCondSrBaseName = condSrName ++ "_eval_cond_" ++ show index                        -- base name for conditional eval subroutine
+    (condEvalSrDef, condEvalSrName, _) = genExprEvalSr evalCondSrBaseName index condition -- generate the conditional eval subroutine
 
     -- Step 2: make subroutines for each statement in the then body of the conditional
-    thenBodySrBaseName = condSrName ++ "_then_body_"
+    thenBodySrBaseName = condSrName ++ "_then_body_" 
     thenBodyIndexed = zipWith (\i stmt -> (thenBodySrBaseName ++ show i, i, stmt)) [0..] thenBody  -- makes [(name, index, stmt)]
-    
     thenBodySrTuples = map (uncurry3 generateStmtSr) thenBodyIndexed                               -- generates [(call, def)] for each stmt
-    
-    thenBodySrDefs = concatMap (\(call, def) -> def) thenBodySrTuples                              -- concatenates all subroutine definitions
+    thenBodySrDef = concatMap (\(call, def) -> def) thenBodySrTuples                              -- concatenates all subroutine definitions
 
     -- Step 3: make a subroutine that executes each statement in the conditional's then body
-    execBodySrName = condSrName ++ "_execute_body"
-    execBodySrDef = execBodySrName ++ ":\n" ++  -- subroutine label
+    execThenBodySrName = condSrName ++ "_execute_then_body"  
+    execThenBodySrDef = execThenBodySrName ++ ":\n" ++                          -- subroutine label
                     concatMap (\(call, _) ->  call) thenBodySrTuples ++ -- concat sequential calls ("\n" and "\t" already in call)  
-                    "\tret\n"                         
+                    "\tret\n"              
 
-    -- Step 4: make a subroutine that will call the conditional eval subroutine and,
+    -- Step 4: if there is an else body, generate the subroutines for each statement in the else body (will be empty if no else body)
+    (execElseBodySrName, execElseBodySrDef) = genOptionalElseBody baseName elseBody
+
+    -- Step 5: make a subroutine that will call the conditional eval subroutine and,
     --         if its result stored in rax is true, then call the step 3 subroutine
-    condSrCall = "\tcall " ++ condSrName ++ "\n"     -- subroutine call
-    condSrDef = condSrName ++ ":\n" ++               -- subroutine label
+    condSrCall = "\tcall " ++ condSrName ++ "\n"        -- subroutine call
+    condSrDef = condSrName ++ ":\n" ++                  -- subroutine label
                 "\tcall " ++ condEvalSrName ++ "\n" ++  -- call the conditional eval subroutine
-                "\tcmp rax, 1\n" ++                  -- compare the result of the conditional eval to 1
-                "\tje " ++ execBodySrName ++ "\n" ++ -- jump to the body execution subroutine if true
-                "\tret\n"                            -- return
+                "\tcmp rax, 1\n" ++                     -- compare the result of the conditional eval to 1
+                "\tje " ++ execThenBodySrName ++ "\n" ++    -- jump to the body execution subroutine if true
+                (if not (null elseBody) then "\tjne " ++ execElseBodySrName ++ "\n" else "") ++ -- jump to else body if false
+                "\tret\n"                               -- return
 
     -- Combine all subroutine definitions together
-    fullSrDef = condSrDef ++ condEvalSrDef ++ execBodySrDef ++ thenBodySrDefs
+    fullSrDef = condSrDef ++ condEvalSrDef ++ execThenBodySrDef ++ thenBodySrDef ++ execElseBodySrDef 
 
   in (condSrCall, fullSrDef)
+
+-- Helper function to generate the subroutines for each statement in the else body of a conditional
+-- statement. If there is no else body, it will return empty strings. Func works by the same process
+-- as is present within genConditionalSr for the then body.
+genOptionalElseBody :: String -> [Stmt] -> (String, String)
+genOptionalElseBody baseName elseBody = 
+  if null elseBody then ("", "")
+  else
+    let
+      -- Generate the subroutines for each statement in the else body
+      elseBodySrBaseName = baseName ++ "_else_body_"
+      elseBodyIndexed = zipWith (\i stmt -> (elseBodySrBaseName ++ show i, i, stmt)) [0..] elseBody  -- Makes [(name, index, stmt)]
+      elseBodySrTuples = map (uncurry3 generateStmtSr) elseBodyIndexed                               -- Generates [(call, def)] for each stmt
+      elseBodySrDefs = concatMap snd elseBodySrTuples                                                -- Concatenate all subroutine definitions
+
+      -- Make a subroutine that executes each statement in the conditional's else body  
+      execElseBodySrName = baseName ++ "_execute_else_body"
+      execElseBodySrDef = execElseBodySrName ++ ":\n" ++      -- Subroutine label
+                          concatMap fst elseBodySrTuples ++   -- Concat sequential calls
+                          "\tret\n"                           -- Return from subroutine
+
+      -- append the subroutine definitions together
+      fullElseBodySrDef = execElseBodySrDef ++ elseBodySrDefs
+
+    in (execElseBodySrName, fullElseBodySrDef)
 
 
 -------------------------------------------------------------------------------------------------- Expression Evaluation Subroutine generation
