@@ -337,15 +337,16 @@ unaryOpEvalSr :: String -> Integer -> UnaryOp -> Expr -> (String, String, Intege
 unaryOpEvalSr baseName index op subExpr =
   let
       -- recursively evaluate the subexpression. NOTE that the index passed in is incremented
-      (subExprDef, _, newIndex) = genExprEvalSr baseName (index + 1) subExpr
+      (subExprDef, subExprName, newIndex) = genExprEvalSr baseName (index + 1) subExpr
 
       -- set unique subroutine name derived from base name, unary op, and index
       subroutineName = baseName ++  "_" ++ show index
 
       -- set subroutine definition 
-      subroutineDef = subroutineName ++ ":\n" ++  -- subroutine label
-                      unaryOpAsm op ++            -- use unaryOpAsm to generate instructions for specific op
-                      "\tret\n"                   -- return from subroutine
+      subroutineDef = subroutineName ++ ":\n" ++           -- subroutine label
+                      "\tcall " ++ subExprName ++ "\n" ++  -- call the subexpression eval subroutine
+                      unaryOpAsm op ++                     -- use unaryOpAsm to generate instructions for specific op
+                      "\tret\n"                            -- return from subroutine
 
       -- append the subExprDef to the subroutine definition
       fullSubroutineDef = subroutineDef ++ subExprDef
@@ -360,13 +361,10 @@ unaryOpEvalSr baseName index op subExpr =
 binaryOpEvalSr :: String -> Integer -> Op -> Expr -> Expr -> (String, String, Integer)
 binaryOpEvalSr baseName index op lhs rhs =
   let
-      -- Generate the subroutine names for LHS and RHS evaluations
-      lhsExprEvalSrName = baseName ++ "_lhs_eval_" ++ show (index + 1)
-      rhsExprEvalSrName = baseName ++ "_rhs_eval_" ++ show (index + 2)
 
       -- Generate subroutine definitions for evaluating LHS and RHS
-      (lhsExprEvalSrDef, _, lhsLastIndex) = genExprEvalSr baseName (index + 1) lhs
-      (rhsExprEvalSrDef, _, rhsLastIndex) = genExprEvalSr baseName (lhsLastIndex + 1) rhs
+      (lhsExprEvalSrDef, lhsExprEvalSrName, lhsLastIndex) = genExprEvalSr (baseName ++ "_lhs_eval") (index) lhs
+      (rhsExprEvalSrDef, rhsExprEvalSrName, rhsLastIndex) = genExprEvalSr (baseName ++ "_rhs_eval") (lhsLastIndex) rhs
 
       -- Unique subroutine name for the binary operation
       binaryOpSrName = baseName ++ "_" ++ show index
@@ -375,7 +373,7 @@ binaryOpEvalSr baseName index op lhs rhs =
       binaryOpSrDef = binaryOpSrName ++ ":\n" ++
 
           -- Evaluate the LHS expression and store the result temporarily
-          "\tcall " ++ baseName ++ "\n" ++
+          "\tcall " ++ lhsExprEvalSrName ++ "\n" ++
           "\tpush rax\n" ++  -- Store LHS result on the stack
 
           -- Evaluate the RHS expression
