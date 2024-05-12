@@ -180,10 +180,10 @@ generateStmtSr optionalPrefix index stmt = case stmt of
     let assignSrName = optionalPrefix ++ lValue ++ "_assignment_" ++ show index
     in (genAssignmentSr assignSrName index lValue expr) 
     
-  -- -- conditional stmt
-  -- IfStmt condition thenBody elseBody -> 
-  --   let conditionSrName = optionalPrefix ++ "cond_stmt_" ++ show index
-  --   in (genConditionalSr conditionSrName index condition thenBody elseBody)
+  -- conditional stmt
+  IfStmt condition thenBody elseBody -> 
+    let conditionSrName = optionalPrefix ++ "cond_stmt_" ++ show index
+    in (genConditionalSr conditionSrName index condition thenBody elseBody)
 
 
 
@@ -201,7 +201,7 @@ genAssignmentSr assignSrName index lValue expr =
     exprEvalSrName = lValue ++ "_expr_eval_" ++ show index
 
     -- Call to generate the expression evaluation subroutine
-    (exprEvalCode, _) = genExprEvalSr exprEvalSrName 0 expr
+    (exprEvalSrDef, _, _) = genExprEvalSr exprEvalSrName 0 expr
 
     -- Set the subroutine definition for the assignment that calls to the expression evaluation subroutine
     assignSrCall = "\tcall " ++ assignSrName ++ "\n"
@@ -213,7 +213,7 @@ genAssignmentSr assignSrName index lValue expr =
                       "\tret\n"                                         -- Return from subroutine
 
     -- Combine the expression eval subroutine definition with the assignment subroutine definition
-    fullSrDef = assignmentSrDef ++ exprEvalCode
+    fullSrDef = assignmentSrDef ++ exprEvalSrDef
 
   in (assignSrCall, fullSrDef)
 
@@ -229,16 +229,47 @@ genAssignmentSr assignSrName index lValue expr =
 --         if its result stored in rax is true, then call the step 3 subroutine
 
 -- Note: all nested subroutines within the conditional will be named after the base condSrName
+-- genConditionalSr generates subroutines for conditional statements including their evaluation and execution logic
+genConditionalSr :: String -> Integer -> Expr -> [Stmt] -> [Stmt] -> (String, String)
+genConditionalSr baseName index condition thenBody elseBody = 
+  let 
+    
+    -- set uunique subroutine name for the conditional
+    condSrName = baseName ++ "_" ++ show index
 
--- genConditionalSr :: String -> Integer -> Expr -> [Stmt] -> [Stmt] -> (String, String)
--- genConditionalSr condSrName index condition thenBody elseBody = 
---   let 
+    -- Step 1: make subroutine that evaluates the conditional expression
+    evalCondSrBaseName = condSrName ++ "_eval_cond_" ++ show index
+    (condEvalSrDef, condEvalSrName, _) = genExprEvalSr evalCondSrBaseName index condition
 
---     -- step 1: make subroutine that evals conditional
---     evalCondSrName = condSrName ++ "_eval_cond_" ++ show index -- set name for conditional eval subroutine
---     (condEvalSrDef, _) = evalCondSrName 0 condition            -- and create subroutine definition 
 
---     -- step 2: make subroutines for each statement in the body of the conditional
+    -- Step 2: make subroutines for each statement in the then body of the conditional
+    thenBodySrBaseName = condSrName ++ "_then_body_"
+    thenBodyIndexed = zipWith (\i stmt -> (thenBodySrBaseName ++ show i, i, stmt)) [0..] thenBody  -- makes [(name, index, stmt)]
+    
+    thenBodySrTuples = map (uncurry3 generateStmtSr) thenBodyIndexed                               -- generates [(call, def)] for each stmt
+    
+    thenBodySrDefs = concatMap (\(call, def) -> def) thenBodySrTuples                              -- concatenates all subroutine definitions
+
+    -- Step 3: make a subroutine that executes each statement in the conditional's then body
+    execBodySrName = condSrName ++ "_execute_body"
+    execBodySrDef = execBodySrName ++ ":\n" ++  -- subroutine label
+                    concatMap (\(call, _) ->  call) thenBodySrTuples ++ -- concat sequential calls ("\n" and "\t" already in call)  
+                    "\tret\n"                         
+
+    -- Step 4: make a subroutine that will call the conditional eval subroutine and,
+    --         if its result stored in rax is true, then call the step 3 subroutine
+    condSrCall = "\tcall " ++ condSrName ++ "\n"     -- subroutine call
+    condSrDef = condSrName ++ ":\n" ++               -- subroutine label
+                "\tcall " ++ condEvalSrName ++ "\n" ++  -- call the conditional eval subroutine
+                "\tcmp rax, 1\n" ++                  -- compare the result of the conditional eval to 1
+                "\tje " ++ execBodySrName ++ "\n" ++ -- jump to the body execution subroutine if true
+                "\tret\n"                            -- return
+
+    -- Combine all subroutine definitions together
+    fullSrDef = condSrDef ++ condEvalSrDef ++ execBodySrDef ++ thenBodySrDefs
+
+  in (condSrCall, fullSrDef)
+
 
 -------------------------------------------------------------------------------------------------- Expression Evaluation Subroutine generation
 
@@ -247,7 +278,7 @@ genAssignmentSr assignSrName index lValue expr =
 -- subroutines to handle the evaluation of the subexpressions.
 -- @param The base name of expression evaluation subroutine, the number of subroutines that have already been chained 
 -- from the base to get to this one, and the current expr/subexpr.
-genExprEvalSr :: String -> Integer -> Expr -> (String, Integer)
+genExprEvalSr :: String -> Integer -> Expr -> (String, String, Integer)
 genExprEvalSr baseName index expr = case expr of
 
   -- Base Cases: expr is a literal or variable
@@ -272,42 +303,41 @@ genExprEvalSr baseName index expr = case expr of
 
 
 -- Helper func to generate subroutine that moves a literal value into rax during expressions eval 
-literalEvalSr :: String -> Integer -> Show a => a -> String -> (String, Integer)
+literalEvalSr :: String -> Integer -> Show a => a -> String -> (String, String, Integer)
 literalEvalSr baseName index value typeName =
   let
     -- set unique subroutine name
-    subroutineName = baseName ++ "_lit_" ++ typeName ++ "_" ++ show value ++ "_" ++ show index
+    subroutineName = baseName ++ "_" ++ show index
 
     -- set subroutine definition
     subroutineDef = subroutineName ++ ":\n" ++
                     "\tmov rax, " ++ show value ++ "\n" ++
                     "\tret\n"
-  in (subroutineDef, index) -- return subroutine def updated index
+  in (subroutineDef, subroutineName, index) -- return subroutine def, name, updated idx
 
 
 -- Helper func to generate subroutnie that moves the value of a variable into rax during expression eval
-variableEvalSr :: String -> Integer -> String -> (String, Integer)
+variableEvalSr :: String -> Integer -> String -> (String, String, Integer)
 variableEvalSr baseName index varName =
   let
       -- set unique subroutine name derived from base name, varName, and index
-      subroutineName = baseName ++ "_var_" ++ varName ++ "_" ++ show index
+      subroutineName = baseName ++ "_" ++ show index
 
       -- set subroutine definition 
       subroutineDef = subroutineName ++ ":\n" ++                   -- subroutine label
                       "\tmov rax, [" ++ varName ++ "_label]\n" ++  -- move value of varName into rax
                       "\tret\n"                                    -- return from subroutine
 
-    -- return the subroutine definition and the updated index
-    in (subroutineDef, index)
+    in (subroutineDef, subroutineName, index) -- return the subroutine def, name, updated idx
 
 -- Helper func to generate subroutine that evaluates a unary operation recursively by chaining
 -- subroutine definitions for evaluating all subexpressions together. The output of the subexpression 
 -- is stored in the rax register the unary operation is applied.
-unaryOpEvalSr :: String -> Integer -> UnaryOp -> Expr -> (String, Integer)
+unaryOpEvalSr :: String -> Integer -> UnaryOp -> Expr -> (String, String, Integer)
 unaryOpEvalSr baseName index op subExpr =
   let
       -- recursively evaluate the subexpression. NOTE that the index passed in is incremented
-      (subExprDef, newIndex) = genExprEvalSr baseName (index + 1) subExpr
+      (subExprDef, _, newIndex) = genExprEvalSr baseName (index + 1) subExpr
 
       -- set unique subroutine name derived from base name, unary op, and index
       subroutineName = baseName ++  "_" ++ show index
@@ -320,14 +350,14 @@ unaryOpEvalSr baseName index op subExpr =
       -- append the subExprDef to the subroutine definition
       fullSubroutineDef = subroutineDef ++ subExprDef
 
-    -- return the full subroutine definition and the updated index
-    in (fullSubroutineDef, newIndex)
+    -- return the full subroutine def, name, updated idx
+    in (fullSubroutineDef, subroutineName, newIndex)
 
 -- Helper func to generate a subroutine that evaluates a binary operation recursively by 
 -- generating a chain of subroutine definitions that will evaluate the left and right hand
 -- subexpressions in a depth first manner. The output of the left hand side expression is
 -- stored on the stack before evaluating the rhs. The final result is stored in the rax register.
-binaryOpEvalSr :: String -> Integer -> Op -> Expr -> Expr -> (String, Integer)
+binaryOpEvalSr :: String -> Integer -> Op -> Expr -> Expr -> (String, String, Integer)
 binaryOpEvalSr baseName index op lhs rhs =
   let
       -- Generate the subroutine names for LHS and RHS evaluations
@@ -335,8 +365,8 @@ binaryOpEvalSr baseName index op lhs rhs =
       rhsExprEvalSrName = baseName ++ "_rhs_eval_" ++ show (index + 2)
 
       -- Generate subroutine definitions for evaluating LHS and RHS
-      (lhsExprEvalSrDef, lhsLastIndex) = genExprEvalSr baseName (index + 1) lhs
-      (rhsExprEvalSrDef, rhsLastIndex) = genExprEvalSr baseName (lhsLastIndex + 1) rhs
+      (lhsExprEvalSrDef, _, lhsLastIndex) = genExprEvalSr baseName (index + 1) lhs
+      (rhsExprEvalSrDef, _, rhsLastIndex) = genExprEvalSr baseName (lhsLastIndex + 1) rhs
 
       -- Unique subroutine name for the binary operation
       binaryOpSrName = baseName ++ "_" ++ show index
@@ -360,8 +390,8 @@ binaryOpEvalSr baseName index op lhs rhs =
       -- Combine the subroutine definitions with the binary operation code
       fullBinaryOpSrDef = lhsExprEvalSrDef ++ rhsExprEvalSrDef ++ binaryOpSrDef
 
-    -- Return the complete binary operation code and the last index used
-    in (fullBinaryOpSrDef, rhsLastIndex)
+    -- Return the complete binary operation sr def, name, updated idx
+    in (fullBinaryOpSrDef, binaryOpSrName, rhsLastIndex)
 
 
 -- unaryOpAsm is a helper function called within genExprEvalSr that generates the 

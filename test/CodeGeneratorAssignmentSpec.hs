@@ -26,12 +26,16 @@ spec = do
 
       -- ensure the subroutine definition is correct
       definition `shouldBe` unlines [
+        
+        -- subroutine chain head
         "x_assignment_1:",
         "\tcall x_expr_eval_1_0",
         "\tmov rax, [rbp + x_label]",
         "\tmov [x_label], rax",
         "\tret",
-        "x_expr_eval_1_lit_Int_42_0:",
+
+        -- subroutine chain below
+        "x_expr_eval_1_0:",
         "\tmov rax, 42",
         "\tret"]
 
@@ -51,12 +55,16 @@ spec = do
 
       -- ensure the definition is correct
       definition `shouldBe` unlines [
+
+        -- subroutine chain head
         "y_assignment_2:",
         "\tcall y_expr_eval_2_0",
         "\tmov rax, [rbp + y_label]",
         "\tmov [y_label], rax",
         "\tret",
-        "y_expr_eval_2_lit_Char_'a'_0:",
+
+        -- subroutine chain below
+        "y_expr_eval_2_0:",
         "\tmov rax, 'a'",
         "\tret"]
 
@@ -80,7 +88,8 @@ spec = do
         "\tmov rax, [rbp + z_label]",
         "\tmov [z_label], rax",
         "\tret",
-        "z_expr_eval_3_lit_Float_3.14_0:",
+
+        "z_expr_eval_3_0:",
         "\tmov rax, 3.14",
         "\tret"]
 
@@ -99,12 +108,16 @@ spec = do
 
       -- ensure the definition is correct
       definition `shouldBe` unlines [
+        
+        -- subroutine chain head
         "w_assignment_4:",
         "\tcall w_expr_eval_4_0",
         "\tmov rax, [rbp + w_label]",
         "\tmov [w_label], rax",
         "\tret",
-        "w_expr_eval_4_lit_Double_3.14159_0:",
+
+        -- subroutine chain below
+        "w_expr_eval_4_0:",
         "\tmov rax, 3.14159",
         "\tret"]
 
@@ -123,12 +136,16 @@ spec = do
 
       -- ensure the definition is correct
       definition `shouldBe` unlines [
+        
+        -- subroutine chain head
         "v_assignment_5:",
         "\tcall v_expr_eval_5_0",
         "\tmov rax, [rbp + v_label]",
         "\tmov [v_label], rax",
         "\tret",
-        "v_expr_eval_5_var_x_0:",
+
+        -- subroutine chain below
+        "v_expr_eval_5_0:",
         "\tmov rax, [x_label]",
         "\tret"]
 
@@ -158,11 +175,11 @@ spec = do
 
         -- expr evaluation subroutine chain
         "z_expr_eval_2_0:",
-        "\tneg rax",    -- negate the result stored in rax
+        "\tneg rax",    -- negate the result stored in rax        
         "\tret",
 
         -- literal evaluation subroutine
-        "z_expr_eval_2_lit_Int_5_1:",
+        "z_expr_eval_2_1:",
         "\tmov rax, 5", -- move the literal value to rax
         "\tret" ]
 
@@ -175,6 +192,7 @@ spec = do
       let expr = BinOp Add (IntLit 5) (IntLit 3) -- binary op for addtion of two liters
       let assignSrName = lValue ++ "_assignment_" ++ show index
       let (call, definition) = genAssignmentSr assignSrName index lValue expr
+      
       
       -- ensure the call is correct
       call `shouldBe` "\tcall z_assignment_1\n"
@@ -191,12 +209,12 @@ spec = do
         -- subroutine chain below: 
 
         -- evaluation of literl expr 5
-        "z_expr_eval_1_lit_Int_5_1:",
+        "z_expr_eval_1_1:",
         "\tmov rax, 5", 
         "\tret",
 
         -- evaluation of literal expr 3
-        "z_expr_eval_1_lit_Int_3_2:",
+        "z_expr_eval_1_2:",
         "\tmov rax, 3",
         "\tret", 
 
@@ -235,20 +253,19 @@ spec = do
         "\tret",
 
         -- subroutine chain below:
-
         "z_expr_eval_1_1:",
         "\tinc rax",
         "\tret",
 
-        "z_expr_eval_1_lit_Int_2_2:",
+        "z_expr_eval_1_2:",
         "\tmov rax, 2",
         "\tret",
 
-        "z_expr_eval_1_lit_Int_3_4:",
+        "z_expr_eval_1_4:",
         "\tmov rax, 3",
         "\tret",
 
-        "z_expr_eval_1_lit_Int_1_5:",
+        "z_expr_eval_1_5:",
         "\tmov rax, 1",
         "\tret",
 
