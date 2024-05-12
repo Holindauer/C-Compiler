@@ -155,23 +155,37 @@ dataTypeToSize dataType = case dataType of
 
 -- generateTextSection returns a list of tuples containing subroutine calls and their definitions
 generateTextSection :: [Stmt] -> [(String, String)]
-generateTextSection stmts = map (uncurry generateStmtSr) indexedStmts -- uncurry unpacks tuple
+generateTextSection stmts = map (uncurry3 generateStmtSr) indexedStmts
   where
-    -- zipWith is used to pair each statement with its index to create unique subroutine names
-    indexedStmts = zipWith (,) [0..] stmts
-    
--- generateStmtSubroutine creates a subroutine call and its associated definition for a single statement.
--- @param the statement number and the statement itself
-generateStmtSr :: Integer -> Stmt -> (String, String)
-generateStmtSr index stmt = case stmt of
+    -- Creates list of empty strings the same length as stmts
+    emptyStrings = replicate (length stmts) ""
+  
+    -- zip3 pairs each stmt with its index and an empty string prefix to create unique subroutine names
+    indexedStmts = zip3 emptyStrings [0..] stmts 
 
+-- uncurry3 is a modified version of the uncurry built-in function that works with 3-tuples
+uncurry3 :: (a -> b -> c -> d) -> (a, b, c) -> d
+uncurry3 f (x, y, z) = f x y z
+
+
+-- generateStmtSubroutine creates a subroutine call and its associated definition for a single statement.
+-- @param the statement number/index and the statement itself
+-- @dev There is also an optional baseName parameter that can be used to inject a unique prefix into the 
+-- subroutine name. An empty string should be passed into the prefix if no prefix is desired.
+generateStmtSr :: String -> Integer -> Stmt -> (String, String)
+generateStmtSr optionalPrefix index stmt = case stmt of
+
+  -- assignment stmt
   AssignStmt lValue expr -> 
-    let 
-      assignSrName = lValue ++ "_assignment_" ++ show index
+    let assignSrName = optionalPrefix ++ lValue ++ "_assignment_" ++ show index
     in (genAssignmentSr assignSrName index lValue expr) 
     
+  -- -- conditional stmt
+  -- IfStmt condition thenBody elseBody -> 
+  --   let conditionSrName = optionalPrefix ++ "cond_stmt_" ++ show index
+  --   in (genConditionalSr conditionSrName index condition thenBody elseBody)
 
---  IfStmt condition thenBody elseBody -> genConditionalSr index condition thenBody elseBody
+
 
   _ -> error "Unsupported statement type"
 
@@ -205,41 +219,26 @@ genAssignmentSr assignSrName index lValue expr =
 
 -------------------------------------------------------------------------------------------------- Conditional Subroutine generation
 
--- genConditionalSr :: Integer -> Expr -> [Stmt] -> [Stmt] -> (String, String)
--- genConditionalSr index condition thenBody elseBody = 
+-- step 1: make subroutine that evals conditional
+
+-- step 2: make subroutines for each statement in the body of the conditional
+
+-- step 3: make subroutine that executes each statement in the conditional
+
+-- steo 4: make subrouinte that will call the condtional eval subroutine and 
+--         if its result stored in rax is true, then call the step 3 subroutine
+
+-- Note: all nested subroutines within the conditional will be named after the base condSrName
+
+-- genConditionalSr :: String -> Integer -> Expr -> [Stmt] -> [Stmt] -> (String, String)
+-- genConditionalSr condSrName index condition thenBody elseBody = 
 --   let 
 
---     -- unique name for conditional subroutine head
---     conditionSrName = "cond_stmt_" ++ show index
+--     -- step 1: make subroutine that evals conditional
+--     evalCondSrName = condSrName ++ "_eval_cond_" ++ show index -- set name for conditional eval subroutine
+--     (condEvalSrDef, _) = evalCondSrName 0 condition            -- and create subroutine definition 
 
---     -- name for condition eval subroutine
---     conditionEvalSrName = conditionSrName ++ "_eval_cond_" ++ show index
-
-
-
---     -- create a subroutine to evaluate the conditional expr
---     (conditionEvalCode, _) = genExprEvalSr "_eval_condition_" 0 condition
-
---     -- update index for the 
-
---     -- using generateStmtSr, create a list of subroutines and their resepcitve calls for the then body
-        
---     thenBodySr = map (uncurry generateStmtSr) (zip [0..] thenBody)
-
-
-
--- -- the reason we are usin this function and not generateStmtSr is to ensure that there are 
--- -- unique names for all statements within the conditional. Currently, when generateStmtSr is called
--- -- the name is generated based of the type of statement and the index. This means that if we called 
--- -- generateStmtSr within the conditional, there would be overlap w/ the subsequent indices of the 
--- -- statements in the broader program. This could potentially cause a double definition for a subroutine
--- -- if the type of statement is the same as well. Although this could be refacted 
-
-
--- genCondBodyStmt :: String -> Integer -> Stmt -> (String, String)
--- genCondBodyStmt baseName index stmt = case stmt of 
-
-
+--     -- step 2: make subroutines for each statement in the body of the conditional
 
 -------------------------------------------------------------------------------------------------- Expression Evaluation Subroutine generation
 
@@ -387,4 +386,5 @@ binaryOpAsm op = case op of
   Subtract -> "\tsub rax, rbx\n"
   Multiply -> "\timul rax, rbx\n"
   Divide -> "\tidiv rbx\n"  -- Assume rbx holds the divisor
+  
   _ -> error "Operation not supported"
