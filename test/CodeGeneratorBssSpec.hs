@@ -1,4 +1,4 @@
-module CodeGenerateBssSpec (main, spec) where
+module CodeGeneratorBssSpec (main, spec) where
 
 import Test.Hspec
 import AST

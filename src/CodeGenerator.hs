@@ -185,7 +185,20 @@ generateStmtSr optionalPrefix index stmt = case stmt of
     let conditionSrName = optionalPrefix ++ "cond_stmt_" ++ show index
     in (genConditionalSr conditionSrName index condition thenBody elseBody)
 
+  -- increment stmt
+  IncrementStmt varName -> 
+    let incrementSrName = optionalPrefix ++ "increment_" ++ show index
+    in genIncrementSr incrementSrName index varName
 
+  -- decrement stmt
+  DecrementStmt varName -> 
+    let decrementSrName = optionalPrefix ++ "decrement_" ++ show index
+    in genDecrementSr decrementSrName index varName
+
+  -- for loop stmt
+  ForStmt initStmt condition updateStmt body -> 
+    let forLoopSrName = optionalPrefix ++ "for_loop_" ++ show index
+    in genForLoopSr forLoopSrName index initStmt condition updateStmt body
 
   _ -> error "Unsupported statement type"
 
@@ -237,12 +250,12 @@ genConditionalSr baseName index condition thenBody elseBody =
     thenBodySrBaseName = condSrName ++ "_then_body_" 
     thenBodyIndexed = zipWith (\i stmt -> (thenBodySrBaseName ++ show i, i, stmt)) [0..] thenBody  -- makes [(name, index, stmt)]
     thenBodySrTuples = map (uncurry3 generateStmtSr) thenBodyIndexed                               -- generates [(call, def)] for each stmt
-    thenBodySrDef = concatMap (\(call, def) -> def) thenBodySrTuples                              -- concatenates all subroutine definitions
+    thenBodySrDef = concatMap (\(call, def) -> def) thenBodySrTuples                               -- concatenates all subroutine definitions
 
     -- Step 3: make a subroutine that executes each statement in the conditional's then body
     execThenBodySrName = condSrName ++ "_execute_then_body"  
-    execThenBodySrDef = execThenBodySrName ++ ":\n" ++                          -- subroutine label
-                    concatMap (\(call, _) ->  call) thenBodySrTuples ++ -- concat sequential calls ("\n" and "\t" already in call)  
+    execThenBodySrDef = execThenBodySrName ++ ":\n" ++                   -- subroutine label
+                    concatMap (\(call, _) ->  call) thenBodySrTuples ++  -- concat sequential calls ("\n" and "\t" already in call)  
                     "\tret\n"              
 
     -- Step 4: if there is an else body, generate the subroutines for each statement in the else body (will be empty if no else body)
@@ -288,6 +301,85 @@ genOptionalElseBody baseName elseBody =
 
     in (execElseBodySrName, fullElseBodySrDef)
 
+-------------------------------------------------------------------------------------------------- For Loop Subroutine Generation
+
+genForLoopSr :: String -> Integer -> Stmt -> Expr -> Stmt -> [Stmt] -> (String, String)
+genForLoopSr baseName index initStmt condition updateStmt body =
+  let
+    -- Step 1: generate the subroutine for the initialization statement
+    initStmtSrName = baseName ++ "_init_stmt_" ++ show index
+    (initStmtSrCall, initStmtSrDef) = generateStmtSr initStmtSrName index initStmt
+
+    -- Step 2: generate the subroutine for the update statement
+    updateStmtSrName = baseName ++ "_update_stmt_" ++ show index
+    (updateStmtSrCall, updateStmtSrDef) = generateStmtSr updateStmtSrName index updateStmt
+
+    -- Step 3: generate the subroutine for the conditional expression
+    (conditionSrDef, conditionSrName, _) = genExprEvalSr baseName index condition
+
+    -- Step 4: generate the subroutine for the body of the for loop
+    bodySrBaseName = baseName ++ "_body_" 
+    bodyIndexed = zipWith (\i stmt -> (bodySrBaseName ++ show i, i, stmt)) [0..] body -- append index to base name
+    bodySrTuples = map (uncurry3 generateStmtSr) bodyIndexed                          -- generate [(call, def)] for each stmt
+    bodySrDef = concatMap (\(call, def) -> def) bodySrTuples                          -- concatenate all subroutine definitions into single str
+
+    -- Step 5: generate the subroutine that will call the initialization, condition, and update subroutines
+    forLoopSrName = baseName ++ "_for_loop_" ++ show index
+    forLoopSrCall = "\tcall " ++ forLoopSrName ++ "\n"
+    forLoopSrDef = forLoopSrName ++ ":\n" ++                              -- subroutine label
+                  "\tcall " ++ initStmtSrName ++ "\n" ++                 -- call the init stmt subroutine
+                  "\tjmp for_loop_condition_" ++ show index ++ "\n" ++   -- jump to the condition check
+
+                  "for_loop_condition_" ++ show index ++ ":\n" ++        -- label for the condition check
+                  "\tcall " ++ conditionSrName ++ "\n" ++                -- call the condition eval subroutine
+                  "\tcmp rax, 0\n" ++                                    -- compare the result of the condition eval to 0
+                  "\tje for_loop_end_" ++ show index ++ "\n" ++          -- jump to end of loop if condition is false (zero)
+
+                  "\tcall " ++ bodySrBaseName ++ "0\n" ++                -- call the body of the for loop
+                  "\tcall " ++ updateStmtSrName ++ "\n" ++               -- call the update stmt subroutine
+                  "\tjmp for_loop_condition_" ++ show index ++ "\n" ++   -- jump back to condition check
+
+                  "for_loop_end_" ++ show index ++ ":\n" ++              -- label for end of loop
+                  "\tret\n"
+
+    -- Combine all subroutine definitions together
+    fullSrDef = forLoopSrDef ++ initStmtSrDef ++ conditionSrDef ++ updateStmtSrDef ++ bodySrDef
+
+  in (forLoopSrCall, fullSrDef)
+
+
+-------------------------------------------------------------------------------------------------- Increment/Decrement Subroutine Generation
+
+-- Generates subroutine definition and call for incrementing a variable
+genIncrementSr :: String -> Integer -> String -> (String, String)
+genIncrementSr baseName index varName = 
+  let
+    -- Set unique subroutine names
+    incrementSrName = baseName ++ show index
+
+    -- Set the subroutine definition for the increment statement
+    incrementSrCall = "\tcall " ++ incrementSrName ++ "\n"
+    incrementSrDef = incrementSrName ++ ":\n" ++
+                     "\tinc [" ++ varName ++ "_label]\n" ++  -- Increment the value of the variable
+                     "\tret\n"                               -- Return from subroutine
+
+  in (incrementSrCall, incrementSrDef)
+
+
+-- Generates subroutine defintion and call for decrementing a variable
+genDecrementSr :: String -> Integer -> String -> (String, String)
+genDecrementSr baseName index varName = 
+  let
+    -- Set unique subroutine names
+    decrementSrName = baseName ++ show index
+
+    -- Set the subroutine definition for the decrement statement
+    decrementSrCall = "\tcall " ++ decrementSrName ++ "\n"
+    decrementSrDef = decrementSrName ++ ":\n" ++
+                     "\tdec [" ++ varName ++ "_label]\n" ++  -- Decrement the value of the variable
+                     "\tret\n"                               -- Return from subroutine
+
+  in (decrementSrCall, decrementSrDef)
 
 -------------------------------------------------------------------------------------------------- Expression Evaluation Subroutine generation
 
@@ -428,9 +520,23 @@ unaryOpAsm op = case op of
 -- within the rax and rbx registers. Commutativity does not apply to this setup.
 binaryOpAsm :: Op -> String
 binaryOpAsm op = case op of
+
+  -- Arithmetic operations
   Add -> "\tadd rax, rbx\n"
   Subtract -> "\tsub rax, rbx\n"
   Multiply -> "\timul rax, rbx\n"
-  Divide -> "\tidiv rbx\n"  -- Assume rbx holds the divisor
-  
+  Divide -> "\tcqo\n" ++ "\tidiv rbx\n"  -- Sign-extend rax into rdx:rax before division
+
+  -- Comparison operations
+  LessThan -> "\tcmp rax, rbx\n" ++ "\tsetl al\n" ++ "\tmovzx rax, al\n"
+  GreaterThan -> "\tcmp rax, rbx\n" ++ "\tsetg al\n" ++ "\tmovzx rax, al\n"
+  LessEq -> "\tcmp rax, rbx\n" ++ "\tsetle al\n" ++ "\tmovzx rax, al\n"
+  GreaterEq -> "\tcmp rax, rbx\n" ++ "\tsetge al\n" ++ "\tmovzx rax, al\n"
+  Equal -> "\tcmp rax, rbx\n" ++ "\tsete al\n" ++ "\tmovzx rax, al\n"
+  NotEqual -> "\tcmp rax, rbx\n" ++ "\tsetne al\n" ++ "\tmovzx rax, al\n"
+
+  -- Logical operations
+  And -> "\tand rax, rbx\n" ++ "\ttest rax, rax\n" ++ "\tsetnz al\n" ++ "\tmovzx rax, al\n"
+  Or -> "\tor rax, rbx\n" ++ "\ttest rax, rax\n" ++ "\tsetnz al\n" ++ "\tmovzx rax, al\n"
+
   _ -> error "Operation not supported"

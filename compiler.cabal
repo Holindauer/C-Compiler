@@ -62,9 +62,11 @@ test-suite compiler-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      CodeGenerateBssSpec
       CodeGeneratorAssignmentSpec
+      CodeGeneratorBssSpec
       CodeGeneratorConditionalSpec
+      CodeGeneratorForLoopSpec
+      CodeGeneratorIncrementDecrementSpec
       LexerSpec
       LexerThenParserSpec
       ParseAssignmentSpec
