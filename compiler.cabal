@@ -65,8 +65,8 @@ test-suite compiler-test
       CodeGeneratorAssignmentSpec
       CodeGeneratorBssSpec
       CodeGeneratorConditionalSpec
-      CodeGeneratorForLoopSpec
       CodeGeneratorIncrementDecrementSpec
+      CodeGeneratorLoopSpec
       LexerSpec
       LexerThenParserSpec
       ParseAssignmentSpec

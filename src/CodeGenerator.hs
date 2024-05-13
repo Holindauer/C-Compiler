@@ -348,6 +348,47 @@ genForLoopSr baseName index initStmt condition updateStmt body =
   in (forLoopSrCall, fullSrDef)
 
 
+-------------------------------------------------------------------------------------------------- While Loop Subroutine Generation
+
+
+
+genWhileLoopSr :: String -> Integer -> Expr -> [Stmt] -> (String, String) 
+genWhileLoopSr baseName index condition body =
+  let
+    
+    -- Step 1: generate subroutine for the conditional expression
+    (conditionSrDef, conditionSrName, _) = genExprEvalSr baseName index condition
+
+    -- Step 2: generate the subroutine for the body of the for loop
+    bodySrBaseName = baseName ++ "_body_" 
+    bodyIndexed = zipWith (\i stmt -> (bodySrBaseName ++ show i, i, stmt)) [0..] body -- append index to base name
+    bodySrTuples = map (uncurry3 generateStmtSr) bodyIndexed                          -- generate [(call, def)] for each stmt
+    bodySrDef = concatMap (\(call, def) -> def) bodySrTuples                          -- concatenate all subroutine definitions into single str
+
+    -- Step 3: generate subroutine 
+    whileLoopSrName = baseName ++ "_while_loop_" ++ show index
+    whileLoopSrCall = "\tcall " ++ whileLoopSrName ++ "\n"
+    whileLoopSrDef = whileLoopSrName ++ ":\n" ++                           -- subroutine label
+                  "\tjmp while_loop_condition_" ++ show index ++ "\n" ++   -- jump to the condition check
+
+                  "while_loop_condition_" ++ show index ++ ":\n" ++        -- label for the condition check
+                  "\tcall " ++ conditionSrName ++ "\n" ++                  -- call the condition eval subroutine
+                  "\tcmp rax, 0\n" ++                                      -- compare result of the condition eval to 0
+                  "\tje while_loop_end_" ++ show index ++ "\n" ++            -- jump to end of loop if condition is false (zero)
+                  "\tcall " ++ bodySrBaseName ++ "0\n" ++                  -- call the body of the for loop
+                  "\tjmp while_loop_condition_" ++ show index ++ "\n" ++   -- jump back to condition check
+
+                  "while_loop_end_" ++ show index ++ ":\n" ++              -- label for end of loop
+                  "\tret\n"
+
+    -- Combine all subroutine definitions together
+    fullSrDef = whileLoopSrDef ++ conditionSrDef ++ bodySrDef
+
+  in (whileLoopSrCall, fullSrDef)
+
+
+
+
 -------------------------------------------------------------------------------------------------- Increment/Decrement Subroutine Generation
 
 -- Generates subroutine definition and call for incrementing a variable
