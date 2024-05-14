@@ -1,9 +1,12 @@
 section .bss
 	a_label: resq 1
 	b_label: resb 1
+
 global _start
 section .text
+
 _start:
+	; Call the main subroutine
 	call a_assignment_0
 
 	; Exit the program properly

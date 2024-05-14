@@ -47,7 +47,6 @@ spec = do
         -- then-body stmt sr
         "testCond_0_then_body_0x_assignment_0:", 
         "\tcall x_expr_eval_0_0",     -- call eval of conditional expr (moves it into rax)
-        "\tmov rax, [rbp + x_label]", -- 
         "\tmov [x_label], rax",
         "\tret",
 
@@ -93,7 +92,6 @@ spec = do
           -- then-body stmt sr chain 1
           "testCond_1_then_body_0x_assignment_0:",
           "\tcall x_expr_eval_0_0",
-          "\tmov rax, [rbp + x_label]",
           "\tmov [x_label], rax",
           "\tret",
           
@@ -104,7 +102,6 @@ spec = do
         -- them body stmt sr chain 2
           "testCond_1_then_body_1y_assignment_1:",
           "\tcall y_expr_eval_1_0",
-          "\tmov rax, [rbp + y_label]",
           "\tmov [y_label], rax",
           "\tret",
           
@@ -151,7 +148,6 @@ spec = do
                 -- then-body stmt sr chain
                 "testCond_2_then_body_0x_assignment_0:",
                 "\tcall x_expr_eval_0_0",        
-                "\tmov rax, [rbp + x_label]",
                 "\tmov [x_label], rax",
                 "\tret",
         
@@ -167,7 +163,6 @@ spec = do
                 -- else-body stmt sr chain
                 "testCond_else_body_0x_assignment_0:",
                 "\tcall x_expr_eval_0_0",
-                "\tmov rax, [rbp + x_label]",
                 "\tmov [x_label], rax",
                 "\tret",
 

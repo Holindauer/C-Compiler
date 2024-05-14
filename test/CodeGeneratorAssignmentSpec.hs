@@ -30,7 +30,6 @@ spec = do
         -- subroutine chain head
         "x_assignment_1:",
         "\tcall x_expr_eval_1_0",
-        "\tmov rax, [rbp + x_label]",
         "\tmov [x_label], rax",
         "\tret",
 
@@ -59,7 +58,6 @@ spec = do
         -- subroutine chain head
         "y_assignment_2:",
         "\tcall y_expr_eval_2_0",
-        "\tmov rax, [rbp + y_label]",
         "\tmov [y_label], rax",
         "\tret",
 
@@ -85,7 +83,6 @@ spec = do
       definition `shouldBe` unlines [
         "z_assignment_3:",
         "\tcall z_expr_eval_3_0",
-        "\tmov rax, [rbp + z_label]",
         "\tmov [z_label], rax",
         "\tret",
 
@@ -112,7 +109,6 @@ spec = do
         -- subroutine chain head
         "w_assignment_4:",
         "\tcall w_expr_eval_4_0",
-        "\tmov rax, [rbp + w_label]",
         "\tmov [w_label], rax",
         "\tret",
 
@@ -140,7 +136,6 @@ spec = do
         -- subroutine chain head
         "v_assignment_5:",
         "\tcall v_expr_eval_5_0",
-        "\tmov rax, [rbp + v_label]",
         "\tmov [v_label], rax",
         "\tret",
 
@@ -169,7 +164,6 @@ spec = do
         -- subroutine chain head
         "z_assignment_2:",
         "\tcall z_expr_eval_2_0",      -- call evaluation subroutine for expression
-        "\tmov rax, [rbp + z_label]",  -- move the result to the destination
         "\tmov [z_label], rax",        -- store the result in the appropriate variable
         "\tret",
 
@@ -205,7 +199,6 @@ spec = do
         -- head of subroutine chain
         "z_assignment_1:",
         "\tcall z_expr_eval_1_0",     -- expression evaluation subroutine
-        "\tmov rax, [rbp + z_label]", -- move the result to the destination
         "\tmov [z_label], rax",       -- store the result in the appropriate variable
         "\tret",
         
@@ -249,7 +242,6 @@ spec = do
         -- head of subroutine chain
         "z_assignment_1:",
         "\tcall z_expr_eval_1_0",     -- call the expression evaluation subroutine
-        "\tmov rax, [rbp + z_label]", -- move the result to the destination
         "\tmov [z_label], rax",       -- store the result in the appropriate variable
         "\tret",
         

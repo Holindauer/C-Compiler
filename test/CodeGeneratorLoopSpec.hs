@@ -52,7 +52,6 @@ spec = do
         -- initialization statement
         "loop_init_stmt_0x_assignment_0:",
         "\tcall x_expr_eval_0_0",
-        "\tmov rax, [rbp + x_label]",
         "\tmov [x_label], rax",
         "\tret",
         
@@ -85,7 +84,6 @@ spec = do
         -- update statement
         "loop_update_stmt_0x_assignment_0:",
         "\tcall x_expr_eval_0_0",     -- call x_expr_eval_0_0 (to update the incrementer)
-        "\tmov rax, [rbp + x_label]", -- move x_label to rax
         "\tmov [x_label], rax",       -- move rax to x_label
         "\tret",
         
@@ -110,7 +108,6 @@ spec = do
         -- body of the loop  (an assignment statement)
         "loop_body_0y_assignment_0:",
         "\tcall y_expr_eval_0_0",
-        "\tmov rax, [rbp + y_label]",
         "\tmov [y_label], rax",
         "\tret",
 
@@ -176,7 +173,6 @@ spec = do
           -- body of the loop  (an assignment statement)
           "loop_body_0y_assignment_0:",
           "\tcall y_expr_eval_0_0",
-          "\tmov rax, [rbp + y_label]",
           "\tmov [y_label], rax",
           "\tret",
           

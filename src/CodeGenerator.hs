@@ -74,10 +74,34 @@ generateCode program =
     bssSection = generateBssSection program
     textTuples = generateTextSection program
 
-    -- placeholder for actual assembly of text section from textTuples
-    textSection = concatMap (\(call, def) -> call ++ def) textTuples
+    -- Concatenate the subroutine definitions into a single string
+    subroutineDefs = concatMap (\(call, def) -> def) textTuples
+
+    -- Concatenate the subroutine calls into a single string
+    subroutineCalls = concatMap (\(call, def) -> call) textTuples
+
+    -- The _start entry point for the program
+    textSection = 
+      -- start/main of the program
+      "global _start\n" ++ 
+      "section .text\n\n" ++
+      "_start:\n" ++ 
+      
+      -- sequential subroutine calls
+      "\t; Call the main subroutine\n" ++
+      subroutineCalls ++
+
+      -- exit program
+      "\n\t; Exit the program properly\n" ++
+	    "\tmov rax, 60      ; syscall number for exit\n" ++
+	    "\txor rdi, rdi     ; exit status 0\n" ++
+      "\tsyscall          ; perform the system call to exit\n\n" ++
+      
+      -- Subroutine definitions
+      subroutineDefs
+
   in
-    "section .bss\n" ++ bssSection ++ "section .text\n" ++ textSection
+    "section .bss\n" ++ bssSection ++ "\n" ++ textSection
 
 
 -- Writes the assembly code to a file
@@ -144,7 +168,7 @@ generateBssSection stmts = foldl' generateBssText "" stmts -- left fold over the
 -- Helper function for generating the size of a data type in NASM assembly syntax
 dataTypeToSize :: String -> String
 dataTypeToSize dataType = case dataType of
-  "int" -> "resd 1"    -- Reserve space for 1 integer (4 bytess)
+  "int" -> "resq 1"    -- 1 int (8 bytes)
   "float" -> "resd 1"  -- 1 float (4 bytes)
   "double" -> "resq 1" -- 1 double (8 bytes)
   "char" -> "resb 1"   -- 1 char (1 byte)
@@ -179,7 +203,15 @@ generateStmtSr optionalPrefix index stmt = case stmt of
   AssignStmt lValue expr -> 
     let assignSrName = optionalPrefix ++ lValue ++ "_assignment_" ++ show index
     in (genAssignmentSr assignSrName index lValue expr) 
-    
+
+  -- declaration assignment stmt
+  DeclarationAssignment dataType lValue expr -> 
+    let assignSrName = optionalPrefix ++ lValue ++ "_assignment_" ++ show index
+    in (genAssignmentSr assignSrName index lValue expr)
+
+  -- simple declarations are ignored as they are handled in the .bss section
+  SimpleDeclaration _ _ -> ("", "")
+
   -- conditional stmt
   IfStmt condition thenBody elseBody -> 
     let conditionSrName = optionalPrefix ++ "cond_stmt_" ++ show index
@@ -221,8 +253,7 @@ genAssignmentSr assignSrName index lValue expr =
 
     assignmentSrDef = assignSrName ++ ":\n" ++
                       "\tcall " ++ exprEvalSrName ++ "_0" ++ "\n" ++     -- ++ "0" bc we want to call the head of the subroutine chain
-                      "\tmov rax, [rbp + " ++ lValue ++ "_label]\n" ++  -- Move the result of the expression eval into rax
-                      "\tmov [" ++ lValue ++ "_label], rax\n" ++        -- Move rax into lValue memory
+                      "\tmov [" ++ lValue ++ "_label], rax\n" ++        -- Move the result in rax directly into the variable's memory
                       "\tret\n"                                         -- Return from subroutine
 
     -- Combine the expression eval subroutine definition with the assignment subroutine definition
