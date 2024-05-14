@@ -19,3 +19,6 @@ ld -o program program.o
 # execute 
 echo -e "Executing program" 
 ./program
+
+# delete object and executable file
+rm program.o program

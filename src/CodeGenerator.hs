@@ -232,6 +232,11 @@ generateStmtSr optionalPrefix index stmt = case stmt of
     let forLoopSrName = optionalPrefix ++ "for_loop_" ++ show index
     in genForLoopSr forLoopSrName index initStmt condition updateStmt body
 
+  -- while loop stmt
+  WhileStmt condition body -> 
+    let whileLoopSrName = optionalPrefix ++ "while_loop_" ++ show index
+    in genWhileLoopSr whileLoopSrName index condition body
+
   _ -> error "Unsupported statement type"
 
 -------------------------------------------------------------------------------------------------- Asssignment Subroutine generation
@@ -243,7 +248,7 @@ genAssignmentSr :: String -> Integer -> String -> Expr -> (String, String)
 genAssignmentSr assignSrName index lValue expr = 
   let
     -- Set unique subroutine names
-    exprEvalSrName = lValue ++ "_expr_eval_" ++ show index
+    exprEvalSrName = assignSrName ++ "_" ++ lValue ++ "_expr_eval_" ++ show index
 
     -- Call to generate the expression evaluation subroutine
     (exprEvalSrDef, _, _) = genExprEvalSr exprEvalSrName 0 expr
@@ -354,11 +359,16 @@ genForLoopSr baseName index initStmt condition updateStmt body =
     bodySrTuples = map (uncurry3 generateStmtSr) bodyIndexed                          -- generate [(call, def)] for each stmt
     bodySrDef = concatMap (\(call, def) -> def) bodySrTuples                          -- concatenate all subroutine definitions into single str
 
+    -- step 5: generate subroutine that will execute the body of the for loop
+    exectuteBodySrName = baseName ++ "_execute_body_" ++ show index
+    executeBodySrDef = exectuteBodySrName ++ ":\n" ++
+      concatMap (\(call, def) -> call) bodySrTuples ++ "\tret"   -- concatenate all subroutine definitions into single str
+
     -- Step 5: generate the subroutine that will call the initialization, condition, and update subroutines
     forLoopSrName = baseName ++ "_for_loop_" ++ show index
     forLoopSrCall = "\tcall " ++ forLoopSrName ++ "\n"
-    forLoopSrDef = forLoopSrName ++ ":\n" ++                              -- subroutine label
-                  "\tcall " ++ initStmtSrName ++ "\n" ++                 -- call the init stmt subroutine
+    forLoopSrDef = forLoopSrName ++ ":\n" ++                             -- subroutine label
+                  initStmtSrCall ++                                      -- call the init stmt subroutine
                   "\tjmp for_loop_condition_" ++ show index ++ "\n" ++   -- jump to the condition check
 
                   "for_loop_condition_" ++ show index ++ ":\n" ++        -- label for the condition check
@@ -366,15 +376,15 @@ genForLoopSr baseName index initStmt condition updateStmt body =
                   "\tcmp rax, 0\n" ++                                    -- compare the result of the condition eval to 0
                   "\tje for_loop_end_" ++ show index ++ "\n" ++          -- jump to end of loop if condition is false (zero)
 
-                  "\tcall " ++ bodySrBaseName ++ "0\n" ++                -- call the body of the for loop
-                  "\tcall " ++ updateStmtSrName ++ "\n" ++               -- call the update stmt subroutine
+                  "\tcall " ++ exectuteBodySrName ++ "\n" ++             -- call the body of the for loop
+                  updateStmtSrCall ++                                    -- call the update stmt subroutine
                   "\tjmp for_loop_condition_" ++ show index ++ "\n" ++   -- jump back to condition check
 
                   "for_loop_end_" ++ show index ++ ":\n" ++              -- label for end of loop
                   "\tret\n"
 
     -- Combine all subroutine definitions together
-    fullSrDef = forLoopSrDef ++ initStmtSrDef ++ conditionSrDef ++ updateStmtSrDef ++ bodySrDef
+    fullSrDef = forLoopSrDef ++ initStmtSrDef ++ conditionSrDef ++ updateStmtSrDef ++ bodySrDef ++ executeBodySrDef
 
   in (forLoopSrCall, fullSrDef)
 
@@ -382,22 +392,30 @@ genForLoopSr baseName index initStmt condition updateStmt body =
 -------------------------------------------------------------------------------------------------- While Loop Subroutine Generation
 
 
-
+-- genWhileLoopSr generates the NASM assembly code for a while loop. This involves generating a subroutine
+-- for the evaluation of the conditional expression, a subroutine for the sequential execution of each statement within
+-- the body of the while loop, and a subroutine that will call the conditional eval subroutine and, if the result is true,
+-- call the body execution subroutine.
 genWhileLoopSr :: String -> Integer -> Expr -> [Stmt] -> (String, String) 
 genWhileLoopSr baseName index condition body =
   let
     
     -- Step 1: generate subroutine for the conditional expression
-    (conditionSrDef, conditionSrName, _) = genExprEvalSr baseName index condition
+    (conditionSrDef, conditionSrName, _) = genExprEvalSr baseName 0 condition
 
     -- Step 2: generate the subroutine for the body of the for loop
-    bodySrBaseName = baseName ++ "_body_" 
-    bodyIndexed = zipWith (\i stmt -> (bodySrBaseName ++ show i, i, stmt)) [0..] body -- append index to base name
+    bodySrBaseName = baseName ++ "_body" 
+    bodyIndexed = zipWith (\i stmt -> (bodySrBaseName ++ "_" ++ show i ++ "_", i, stmt)) [0..] body -- append index to base name
     bodySrTuples = map (uncurry3 generateStmtSr) bodyIndexed                          -- generate [(call, def)] for each stmt
-    bodySrDef = concatMap (\(call, def) -> def) bodySrTuples                          -- concatenate all subroutine definitions into single str
+    bodySrDef = concatMap (\(call, def) -> def) bodySrTuples                 -- concatenate all subroutine definitions into single str
+
+
+    -- step 3: generate the subroutine with bodySrBaseName that will execute each statement in the body of the while loop
+    executeBodyDef = bodySrBaseName ++ ":\n" ++
+      concatMap (\(call, def) -> call) bodySrTuples ++ "\tret"   -- concatenate all subroutine definitions into single str 
 
     -- Step 3: generate subroutine 
-    whileLoopSrName = baseName ++ "_while_loop_" ++ show index
+    whileLoopSrName = baseName ++ "_looper_" ++ show index
     whileLoopSrCall = "\tcall " ++ whileLoopSrName ++ "\n"
     whileLoopSrDef = whileLoopSrName ++ ":\n" ++                           -- subroutine label
                   "\tjmp while_loop_condition_" ++ show index ++ "\n" ++   -- jump to the condition check
@@ -406,14 +424,14 @@ genWhileLoopSr baseName index condition body =
                   "\tcall " ++ conditionSrName ++ "\n" ++                  -- call the condition eval subroutine
                   "\tcmp rax, 0\n" ++                                      -- compare result of the condition eval to 0
                   "\tje while_loop_end_" ++ show index ++ "\n" ++            -- jump to end of loop if condition is false (zero)
-                  "\tcall " ++ bodySrBaseName ++ "0\n" ++                  -- call the body of the for loop
+                  "\tcall " ++ bodySrBaseName ++ "\n" ++                  -- call the body of the for loop
                   "\tjmp while_loop_condition_" ++ show index ++ "\n" ++   -- jump back to condition check
 
                   "while_loop_end_" ++ show index ++ ":\n" ++              -- label for end of loop
                   "\tret\n"
 
     -- Combine all subroutine definitions together
-    fullSrDef = whileLoopSrDef ++ conditionSrDef ++ bodySrDef
+    fullSrDef = whileLoopSrDef ++ conditionSrDef ++ bodySrDef  ++ executeBodyDef
 
   in (whileLoopSrCall, fullSrDef)
 
