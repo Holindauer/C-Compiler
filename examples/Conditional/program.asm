@@ -1,0 +1,133 @@
+section .bss
+	variable_label: resq 1
+
+global _start
+section .text
+
+_start:
+	; Call the main subroutine
+	call variable_assignment_0
+	call cond_stmt_1_1
+
+	; Exit the program properly
+	mov rax, 60      ; syscall number for exit
+	xor rdi, rdi     ; exit status 0
+	syscall          ; perform the system call to exit
+
+variable_assignment_0:
+	call variable_assignment_0_variable_expr_eval_0_0
+	mov [variable_label], rax
+	ret
+variable_assignment_0_variable_expr_eval_0_0:
+	mov rax, 0
+	ret
+cond_stmt_1_1:
+	call cond_stmt_1_1_eval_cond_1_1
+	cmp rax, 1
+	je cond_stmt_1_1_execute_then_body
+	jne cond_stmt_1_execute_else_body
+	ret
+cond_stmt_1_1_eval_cond_1_lhs_eval_1:
+	mov rax, [variable_label]
+	ret
+cond_stmt_1_1_eval_cond_1_rhs_eval_1:
+	mov rax, 1
+	ret
+cond_stmt_1_1_eval_cond_1_1:
+	call cond_stmt_1_1_eval_cond_1_lhs_eval_1
+	push rax
+	call cond_stmt_1_1_eval_cond_1_rhs_eval_1
+	mov rbx, rax
+	pop rax
+	cmp rax, rbx
+	sete al
+	movzx rax, al
+	ret
+cond_stmt_1_1_execute_then_body:
+	call cond_stmt_1_1_then_body_0variable_assignment_0
+	ret
+cond_stmt_1_1_then_body_0variable_assignment_0:
+	call cond_stmt_1_1_then_body_0variable_assignment_0_variable_expr_eval_0_0
+	mov [variable_label], rax
+	ret
+cond_stmt_1_1_then_body_0variable_assignment_0_variable_expr_eval_0_lhs_eval_0:
+	mov rax, [variable_label]
+	ret
+cond_stmt_1_1_then_body_0variable_assignment_0_variable_expr_eval_0_rhs_eval_0:
+	mov rax, 3
+	ret
+cond_stmt_1_1_then_body_0variable_assignment_0_variable_expr_eval_0_0:
+	call cond_stmt_1_1_then_body_0variable_assignment_0_variable_expr_eval_0_lhs_eval_0
+	push rax
+	call cond_stmt_1_1_then_body_0variable_assignment_0_variable_expr_eval_0_rhs_eval_0
+	mov rbx, rax
+	pop rax
+	imul rax, rbx
+	ret
+cond_stmt_1_execute_else_body:
+	call cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0
+	ret
+cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0:
+	call cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_eval_cond_0_0
+	cmp rax, 1
+	je cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_execute_then_body
+	ret
+cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_eval_cond_0_0:
+	mov rax, 1
+	ret
+cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_execute_then_body:
+	call cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_then_body_0cond_stmt_0_0
+	ret
+cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_then_body_0cond_stmt_0_0:
+	call cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_then_body_0cond_stmt_0_0_eval_cond_0_0
+	cmp rax, 1
+	je cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_then_body_0cond_stmt_0_0_execute_then_body
+	jne cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_then_body_0cond_stmt_0_execute_else_body
+	ret
+cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_then_body_0cond_stmt_0_0_eval_cond_0_lhs_eval_0:
+	mov rax, [variable_label]
+	ret
+cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_then_body_0cond_stmt_0_0_eval_cond_0_rhs_eval_0:
+	mov rax, 2
+	ret
+cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_then_body_0cond_stmt_0_0_eval_cond_0_0:
+	call cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_then_body_0cond_stmt_0_0_eval_cond_0_lhs_eval_0
+	push rax
+	call cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_then_body_0cond_stmt_0_0_eval_cond_0_rhs_eval_0
+	mov rbx, rax
+	pop rax
+	cmp rax, rbx
+	sete al
+	movzx rax, al
+	ret
+cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_then_body_0cond_stmt_0_0_execute_then_body:
+	call cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_then_body_0cond_stmt_0_0_then_body_0variable_assignment_0
+	ret
+cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_then_body_0cond_stmt_0_0_then_body_0variable_assignment_0:
+	call cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_then_body_0cond_stmt_0_0_then_body_0variable_assignment_0_variable_expr_eval_0_0
+	mov [variable_label], rax
+	ret
+cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_then_body_0cond_stmt_0_0_then_body_0variable_assignment_0_variable_expr_eval_0_0:
+	mov rax, 3
+	ret
+cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_then_body_0cond_stmt_0_execute_else_body:
+	call cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_then_body_0cond_stmt_0_else_body_0else_stmt_0cond_stmt_0_0
+	ret
+cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_then_body_0cond_stmt_0_else_body_0else_stmt_0cond_stmt_0_0:
+	call cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_then_body_0cond_stmt_0_else_body_0else_stmt_0cond_stmt_0_0_eval_cond_0_0
+	cmp rax, 1
+	je cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_then_body_0cond_stmt_0_else_body_0else_stmt_0cond_stmt_0_0_execute_then_body
+	ret
+cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_then_body_0cond_stmt_0_else_body_0else_stmt_0cond_stmt_0_0_eval_cond_0_0:
+	mov rax, 1
+	ret
+cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_then_body_0cond_stmt_0_else_body_0else_stmt_0cond_stmt_0_0_execute_then_body:
+	call cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_then_body_0cond_stmt_0_else_body_0else_stmt_0cond_stmt_0_0_then_body_0variable_assignment_0
+	ret
+cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_then_body_0cond_stmt_0_else_body_0else_stmt_0cond_stmt_0_0_then_body_0variable_assignment_0:
+	call cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_then_body_0cond_stmt_0_else_body_0else_stmt_0cond_stmt_0_0_then_body_0variable_assignment_0_variable_expr_eval_0_0
+	mov [variable_label], rax
+	ret
+cond_stmt_1_else_body_0else_stmt_0cond_stmt_0_0_then_body_0cond_stmt_0_else_body_0else_stmt_0cond_stmt_0_0_then_body_0variable_assignment_0_variable_expr_eval_0_0:
+	mov rax, 4
+	ret

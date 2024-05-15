@@ -29,12 +29,12 @@ spec = do
         
         -- subroutine chain head
         "x_assignment_1:",
-        "\tcall x_expr_eval_1_0",
+        "\tcall x_assignment_1_x_expr_eval_1_0",
         "\tmov [x_label], rax",
         "\tret",
 
         -- subroutine chain below
-        "x_expr_eval_1_0:",
+        "x_assignment_1_x_expr_eval_1_0:",
         "\tmov rax, 42",
         "\tret"]
 
@@ -57,12 +57,12 @@ spec = do
 
         -- subroutine chain head
         "y_assignment_2:",
-        "\tcall y_expr_eval_2_0",
+        "\tcall y_assignment_2_y_expr_eval_2_0",
         "\tmov [y_label], rax",
         "\tret",
 
         -- subroutine chain below
-        "y_expr_eval_2_0:",
+        "y_assignment_2_y_expr_eval_2_0:",
         "\tmov rax, 'a'",
         "\tret"]
 
@@ -82,11 +82,11 @@ spec = do
       -- ensure the definition is correct
       definition `shouldBe` unlines [
         "z_assignment_3:",
-        "\tcall z_expr_eval_3_0",
+        "\tcall z_assignment_3_z_expr_eval_3_0",
         "\tmov [z_label], rax",
         "\tret",
 
-        "z_expr_eval_3_0:",
+        "z_assignment_3_z_expr_eval_3_0:",
         "\tmov rax, 3.14",
         "\tret"]
 
@@ -108,12 +108,12 @@ spec = do
         
         -- subroutine chain head
         "w_assignment_4:",
-        "\tcall w_expr_eval_4_0",
+        "\tcall w_assignment_4_w_expr_eval_4_0",
         "\tmov [w_label], rax",
         "\tret",
 
         -- subroutine chain below
-        "w_expr_eval_4_0:",
+        "w_assignment_4_w_expr_eval_4_0:",
         "\tmov rax, 3.14159",
         "\tret"]
 
@@ -135,12 +135,12 @@ spec = do
         
         -- subroutine chain head
         "v_assignment_5:",
-        "\tcall v_expr_eval_5_0",
+        "\tcall v_assignment_5_v_expr_eval_5_0",
         "\tmov [v_label], rax",
         "\tret",
 
         -- subroutine chain below
-        "v_expr_eval_5_0:",
+        "v_assignment_5_v_expr_eval_5_0:",
         "\tmov rax, [x_label]",
         "\tret"]
 
@@ -163,18 +163,18 @@ spec = do
 
         -- subroutine chain head
         "z_assignment_2:",
-        "\tcall z_expr_eval_2_0",      -- call evaluation subroutine for expression
+        "\tcall z_assignment_2_z_expr_eval_2_0",      -- call evaluation subroutine for expression
         "\tmov [z_label], rax",        -- store the result in the appropriate variable
         "\tret",
 
         -- expr evaluation subroutine chain
-        "z_expr_eval_2_0:",
-        "\tcall z_expr_eval_2_1", -- call the evaluation subroutine for the unary operator
+        "z_assignment_2_z_expr_eval_2_0:",
+        "\tcall z_assignment_2_z_expr_eval_2_1", -- call the evaluation subroutine for the unary operator
         "\tneg rax",              -- negate the result stored in rax        
         "\tret",
 
         -- literal evaluation subroutine
-        "z_expr_eval_2_1:",
+        "z_assignment_2_z_expr_eval_2_1:",
         "\tmov rax, 5", -- move the literal value to rax
         "\tret" ]
 
@@ -198,25 +198,25 @@ spec = do
         
         -- head of subroutine chain
         "z_assignment_1:",
-        "\tcall z_expr_eval_1_0",     -- expression evaluation subroutine
+        "\tcall z_assignment_1_z_expr_eval_1_0",     -- expression evaluation subroutine
         "\tmov [z_label], rax",       -- store the result in the appropriate variable
         "\tret",
         
         -- lhs evaluation subroutine
-        "z_expr_eval_1_lhs_eval_0:",
+        "z_assignment_1_z_expr_eval_1_lhs_eval_0:",
         "\tmov rax, 5",
         "\tret",
 
         -- rhs evaluation subroutine
-        "z_expr_eval_1_rhs_eval_0:",
+        "z_assignment_1_z_expr_eval_1_rhs_eval_0:",
         "\tmov rax, 3", 
         "\tret",
 
         -- binOp expression evaluation subroutine chain
-        "z_expr_eval_1_0:",    
-        "\tcall z_expr_eval_1_lhs_eval_0",  -- call the evaluation subroutine for the lhs
+        "z_assignment_1_z_expr_eval_1_0:",    
+        "\tcall z_assignment_1_z_expr_eval_1_lhs_eval_0",  -- call the evaluation subroutine for the lhs
         "\tpush rax",                       -- push the result of the lhs onto the stack
-        "\tcall z_expr_eval_1_rhs_eval_0",  -- call the evaluation subroutine for the rhs
+        "\tcall z_assignment_1_z_expr_eval_1_rhs_eval_0",  -- call the evaluation subroutine for the rhs
         "\tmov rbx, rax",                   -- move the result of the rhs to rbx
         "\tpop rax",                        -- pop the result of the lhs from the stack
         "\tadd rax, rbx",                   -- add the results of the lhs and rhs
@@ -241,46 +241,46 @@ spec = do
         
         -- head of subroutine chain
         "z_assignment_1:",
-        "\tcall z_expr_eval_1_0",     -- call the expression evaluation subroutine
+        "\tcall z_assignment_1_z_expr_eval_1_0",     -- call the expression evaluation subroutine
         "\tmov [z_label], rax",       -- store the result in the appropriate variable
         "\tret",
         
         -- unary operator evaluation subroutine
-        "z_expr_eval_1_lhs_eval_0:",
-        "\tcall z_expr_eval_1_lhs_eval_1",
+        "z_assignment_1_z_expr_eval_1_lhs_eval_0:",
+        "\tcall z_assignment_1_z_expr_eval_1_lhs_eval_1",
         "\tinc rax",
         "\tret",
 
         -- literal evaluation subroutine
-        "z_expr_eval_1_lhs_eval_1:",
+        "z_assignment_1_z_expr_eval_1_lhs_eval_1:",
         "\tmov rax, 2",
         "\tret",
         
         -- rhs evaluation subroutine
-        "z_expr_eval_1_rhs_eval_lhs_eval_1:",
+        "z_assignment_1_z_expr_eval_1_rhs_eval_lhs_eval_1:",
         "\tmov rax, 3",
         "\tret",
         
         -- rhs evaluation subroutine
-        "z_expr_eval_1_rhs_eval_rhs_eval_1:",
+        "z_assignment_1_z_expr_eval_1_rhs_eval_rhs_eval_1:",
         "\tmov rax, 1",
         "\tret",
 
         -- binOp expression evaluation subroutine chain
-        "z_expr_eval_1_rhs_eval_1:",
-        "\tcall z_expr_eval_1_rhs_eval_lhs_eval_1",
+        "z_assignment_1_z_expr_eval_1_rhs_eval_1:",
+        "\tcall z_assignment_1_z_expr_eval_1_rhs_eval_lhs_eval_1",
         "\tpush rax",
-        "\tcall z_expr_eval_1_rhs_eval_rhs_eval_1",
+        "\tcall z_assignment_1_z_expr_eval_1_rhs_eval_rhs_eval_1",
         "\tmov rbx, rax",
         "\tpop rax",
         "\tsub rax, rbx",
         "\tret",
 
         -- expression evaluation subroutine chain head
-        "z_expr_eval_1_0:",
-        "\tcall z_expr_eval_1_lhs_eval_0",
+        "z_assignment_1_z_expr_eval_1_0:",
+        "\tcall z_assignment_1_z_expr_eval_1_lhs_eval_0",
         "\tpush rax",
-        "\tcall z_expr_eval_1_rhs_eval_1",
+        "\tcall z_assignment_1_z_expr_eval_1_rhs_eval_1",
         "\tmov rbx, rax",
         "\tpop rax",
         "\tadd rax, rbx",

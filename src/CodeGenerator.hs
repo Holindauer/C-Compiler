@@ -217,6 +217,11 @@ generateStmtSr optionalPrefix index stmt = case stmt of
     let conditionSrName = optionalPrefix ++ "cond_stmt_" ++ show index
     in (genConditionalSr conditionSrName index condition thenBody elseBody)
 
+  -- else stmt
+  ElseStmt body -> 
+    let elseSrName = optionalPrefix ++ "else_stmt_" ++ show index
+    in generateStmtSr elseSrName index (IfStmt (IntLit 1) body [])
+
   -- increment stmt
   IncrementStmt varName -> 
     let incrementSrName = optionalPrefix ++ "increment_" ++ show index
@@ -237,7 +242,7 @@ generateStmtSr optionalPrefix index stmt = case stmt of
     let whileLoopSrName = optionalPrefix ++ "while_loop_" ++ show index
     in genWhileLoopSr whileLoopSrName index condition body
 
-  _ -> error "Unsupported statement type"
+  _ -> error "Unsupported statement type" 
 
 -------------------------------------------------------------------------------------------------- Asssignment Subroutine generation
 
@@ -365,7 +370,7 @@ genForLoopSr baseName index initStmt condition updateStmt body =
       concatMap (\(call, def) -> call) bodySrTuples ++ "\tret"   -- concatenate all subroutine definitions into single str
 
     -- Step 5: generate the subroutine that will call the initialization, condition, and update subroutines
-    forLoopSrName = baseName ++ "_for_loop_" ++ show index
+    forLoopSrName = baseName ++ "_looper_" ++ show index
     forLoopSrCall = "\tcall " ++ forLoopSrName ++ "\n"
     forLoopSrDef = forLoopSrName ++ ":\n" ++                             -- subroutine label
                   initStmtSrCall ++                                      -- call the init stmt subroutine
@@ -376,7 +381,8 @@ genForLoopSr baseName index initStmt condition updateStmt body =
                   "\tcmp rax, 0\n" ++                                    -- compare the result of the condition eval to 0
                   "\tje for_loop_end_" ++ show index ++ "\n" ++          -- jump to end of loop if condition is false (zero)
 
-                  "\tcall " ++ exectuteBodySrName ++ "\n" ++             -- call the body of the for loop
+                  "\tcall " ++ exectuteBodySrName ++ "\n" ++       
+                        -- call the body of the for loop
                   updateStmtSrCall ++                                    -- call the update stmt subroutine
                   "\tjmp for_loop_condition_" ++ show index ++ "\n" ++   -- jump back to condition check
 
@@ -434,9 +440,6 @@ genWhileLoopSr baseName index condition body =
     fullSrDef = whileLoopSrDef ++ conditionSrDef ++ bodySrDef  ++ executeBodyDef
 
   in (whileLoopSrCall, fullSrDef)
-
-
-
 
 -------------------------------------------------------------------------------------------------- Increment/Decrement Subroutine Generation
 

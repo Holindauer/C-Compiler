@@ -46,12 +46,12 @@ spec = do
         
         -- then-body stmt sr
         "testCond_0_then_body_0x_assignment_0:", 
-        "\tcall x_expr_eval_0_0",     -- call eval of conditional expr (moves it into rax)
+        "\tcall testCond_0_then_body_0x_assignment_0_x_expr_eval_0_0",     -- call eval of conditional expr (moves it into rax)
         "\tmov [x_label], rax",
         "\tret",
 
         -- eval of conditional expr (simple literal in this case)
-        "x_expr_eval_0_0:",
+        "testCond_0_then_body_0x_assignment_0_x_expr_eval_0_0:",
         "\tmov rax, 10",
         "\tret"]
 
@@ -91,21 +91,21 @@ spec = do
           
           -- then-body stmt sr chain 1
           "testCond_1_then_body_0x_assignment_0:",
-          "\tcall x_expr_eval_0_0",
+          "\tcall testCond_1_then_body_0x_assignment_0_x_expr_eval_0_0",
           "\tmov [x_label], rax",
           "\tret",
           
-          "x_expr_eval_0_0:",  
+          "testCond_1_then_body_0x_assignment_0_x_expr_eval_0_0:",  
           "\tmov rax, 10",
           "\tret",
         
         -- them body stmt sr chain 2
           "testCond_1_then_body_1y_assignment_1:",
-          "\tcall y_expr_eval_1_0",
+          "\tcall testCond_1_then_body_1y_assignment_1_y_expr_eval_1_0",
           "\tmov [y_label], rax",
           "\tret",
           
-          "y_expr_eval_1_0:",
+          "testCond_1_then_body_1y_assignment_1_y_expr_eval_1_0:",
           "\tmov rax, 20",
           "\tret"]
 
@@ -147,11 +147,11 @@ spec = do
                 
                 -- then-body stmt sr chain
                 "testCond_2_then_body_0x_assignment_0:",
-                "\tcall x_expr_eval_0_0",        
+                "\tcall testCond_2_then_body_0x_assignment_0_x_expr_eval_0_0",        
                 "\tmov [x_label], rax",
                 "\tret",
         
-                "x_expr_eval_0_0:",
+                "testCond_2_then_body_0x_assignment_0_x_expr_eval_0_0:",
                 "\tmov rax, 10",
                 "\tret",
                 
@@ -162,10 +162,10 @@ spec = do
 
                 -- else-body stmt sr chain
                 "testCond_else_body_0x_assignment_0:",
-                "\tcall x_expr_eval_0_0",
+                "\tcall testCond_else_body_0x_assignment_0_x_expr_eval_0_0",
                 "\tmov [x_label], rax",
                 "\tret",
 
-                "x_expr_eval_0_0:",
+                "testCond_else_body_0x_assignment_0_x_expr_eval_0_0:",
                 "\tmov rax, 20",
                 "\tret"]
