@@ -3,7 +3,10 @@ module ParseForLoopSpec where
 import Test.Hspec
 import Lexer (Token(..))
 import AST (Expr(..), Stmt(..), Op(..))
-import Parser (parseForLoop, parseForLoopHeader, parseDeclaration, parseUpdateStatement, extractForLoopHeader, ensureSemicolon)
+import Parser_Main
+import Parser_Helper
+import Parser_Statements
+import Parser_Expressions
 import Data.Either (isLeft)
 
 spec :: Spec

@@ -31,7 +31,10 @@ library
       CodeGen_Statements
       Helper
       Lexer
-      Parser
+      Parser_Expressions
+      Parser_Helper
+      Parser_Main
+      Parser_Statements
   other-modules:
       Paths_compiler
   autogen-modules:

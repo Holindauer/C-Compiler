@@ -3,7 +3,10 @@ module ParseWhileLoopSpec where
 import Test.Hspec
 import Lexer (Token(..))
 import AST (Expr(..), Stmt(..), Op(..))
-import Parser (parseConditional, parseExpr, parseParenthesizedExpr, parseBlock, parseOptionalElse, parseStatementsUntilBrace, parseWhileLoop, ParseError(..))
+import Parser_Main
+import Parser_Helper
+import Parser_Statements
+import Parser_Expressions
 
 -- Helper function to generate tokens for a simple while loop
 -- Corresponding to: while (x < 5) { x = x + 1; }

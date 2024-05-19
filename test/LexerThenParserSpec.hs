@@ -4,7 +4,10 @@ module LexerThenParserSpec where
 
 import Test.Hspec
 import Lexer
-import Parser
+import Parser_Main
+import Parser_Helper
+import Parser_Statements
+import Parser_Expressions
 import AST
 
 -- Test Driver

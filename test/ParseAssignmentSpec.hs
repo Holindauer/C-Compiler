@@ -1,7 +1,10 @@
 module ParseAssignmentSpec where
 
 import Test.Hspec
-import Parser (parseProgram, parseExpr, parseStmt, parseAssignment, parseDeclaration, parseConditional, ParseError(..))
+import Parser_Main
+import Parser_Helper
+import Parser_Statements
+import Parser_Expressions
 import Lexer
 import AST
 

@@ -1,57 +1,13 @@
-{-# LANGUAGE LambdaCase #-}
+module Parser_Statements where
 
--- Parser.h contains functions for parsing the C subset langauge.  The parser is used after 
--- the Lexer, converting the outputted list of tokens into an abstract syntax tree (defined
--- in AST.hs) that represents the program's gramatical structure.
-
-module Parser where
-
+import Parser_Expressions
+import Parser_Helper
 import Lexer
 import AST
 import Debug.Trace (traceShow, trace)
 
--- Type alias for lexed tokens 
-type LexedTokens = [Token]
-
--- ParserResult type alias. Parsing results in either a ParseError or a value of type a
-type ParserResult a = Either ParseError a
-
--- ParseError type is used to represent potential errors that can occur during parsing
-data ParseError = UnexpectedToken Token
-                | MissingSemicolon
-                | InvalidSyntax String
-                | UnexpectedEndOfInput
-                deriving (Show, Eq) 
-
--- parsePogram is the master parsing function that parses the entire program by recursively 
--- processing each statement, packaging them into the AST and returning the final result.
--- It accepts the list of tokens received from the lexer and returns a ParserResult
--- @dev Left and Right are constructors of the Either type
-parseProgram :: LexedTokens -> ParserResult ([Stmt], LexedTokens)
-parseProgram [] = Right ([], []) -- Empty program
-
--- Parse into Main function
-parseProgram (TInt : TMain : TLparen : TVoid : TRparen : TLbrace : tokens) = 
-
-    -- parse and return the interior of the main function
-    -- there should be no tokens left after parsing the main function
-    parseProgram tokens >>= \(stmts, remainingTokens) ->
-        if null remainingTokens
-        then Right (stmts, remainingTokens)
-        else Left (InvalidSyntax "Unexpected tokens after main function")
-        
--- parse interior of main func following 'int main(void) {'
-parseProgram tokens = do
-    -- Parse the next statement and recursively call parseProgram
-    case parseStmt tokens of     
-        Left err -> Left err     
-        Right (Nothing, rest) -> parseProgram rest -- Skip empty statements
-        Right (Just stmt, rest) ->
-            -- Recursively parse the remaining tokens
-            case parseProgram rest of
-                Left err -> Left err
-                Right (stmts, remainingTokens) -> Right (stmt : stmts, remainingTokens)
-
+-- Parser_Statements.hs contains the functions for parsing statements in the program.
+-- The parseStmt function is the main entry point for parsing statements.
 
 -------------------------------------------------------------------------------------------------- Statement Parsing
 
@@ -350,80 +306,3 @@ parseUpdateStatement tokens = case tokens of
     (token : _) -> trace ("Unexpected token in update statement: " ++ show token) $
          Left (UnexpectedToken token)
     _ -> Left (InvalidSyntax "parseUpdateStatement: Invalid or missing update statement in for loop header")
-
-
--------------------------------------------------------------------------------------------------- Generic Expression Parsing
-
--- parseExpr handles expressions by determining if they are simple, unary, or binary expressions based on the context.
--- It returns a ParserResult that contains either the parsed expression and the remaining tokens or an error.
-parseExpr :: LexedTokens -> ParserResult (Expr, LexedTokens)
-parseExpr tokens = case tokens of
-
-    -- Check for parenthesized expressions first.
-    (TLparen : _) -> parseParenthesizedExpr tokens
-
-    -- If not a parenthesized expression, attempt to parse as a primary expression.
-    _ -> parsePrimaryExpr tokens >>= \(expr, remainingTokens) ->
-            case remainingTokens of
-
-                -- If no more tokens, it's a primary expression.
-                [] -> Right (expr, remainingTokens)
-
-                -- If more tokens, check if it's an operator to decide on binary expression.
-                (nextToken : _) -> 
-                    if isOperator nextToken
-                    then continueParsingBinaryExpr expr remainingTokens
-                    else Right (expr, remainingTokens)
-
--- Parses parenthesized expressions ensuring correct closure of parentheses.
-parseParenthesizedExpr :: LexedTokens -> ParserResult (Expr, LexedTokens)
-parseParenthesizedExpr (TLparen : rest) = 
-
-    -- Parse the expression inside the parentheses
-    parseExpr rest >>= \(expr, afterExpr) ->
-        case afterExpr of
-            (TRparen : remainingTokens) -> Right (expr, remainingTokens)
-            _ -> Left (InvalidSyntax "Expected closing parenthesis")
-parseParenthesizedExpr _ = Left (InvalidSyntax "Expected opening parenthesis")
-
--- Primary expression parsing.
-parsePrimaryExpr :: LexedTokens -> ParserResult (Expr, LexedTokens)
-parsePrimaryExpr [] = Left UnexpectedEndOfInput
-parsePrimaryExpr (token : rest) = case token of
-
-    -- Parse literals and variables as primary expressions.
-    TIntLit i -> Right (IntLit (toInteger i), rest)
-    TFloatLit f -> Right (FloatLit f, rest)
-    TDoubleLit d -> Right (DoubleLit d, rest)
-    TIdent var -> Right (Var var, rest)
-    _ -> Left (InvalidSyntax "parsePrimaryExpr: Invalid primary expression")
-
--- continueParsingBinaryExpr is called within parseExpr to continue an expression that is determined to
--- be a binary expression. It returns a ParserResult that contains either the parsed expression and the
--- remaining tokens or an error.
-continueParsingBinaryExpr :: Expr -> LexedTokens -> ParserResult (Expr, LexedTokens)
-continueParsingBinaryExpr leftExpr (operator : rest) = 
-    parseExpr rest >>= \(rightExpr, remainingTokens) ->
-        let op = tokenToOperator operator in
-        Right (BinOp op leftExpr rightExpr, remainingTokens)
-
--- Helper function to convert a token to an operator.
-tokenToOperator :: Token -> Op
-tokenToOperator token = case token of
-    TGreaterThan -> GreaterThan
-    TLessThan -> LessThan
-    TEqual -> Equal
-    TNotEqual -> NotEqual
-    TLessEq -> LessEq
-    TGreaterEq -> GreaterEq
-    TPlus -> Add
-    TMinus -> Subtract
-    TStar -> Multiply
-    TSlash -> Divide
-    TPercent -> Modulus
-    _ -> error "Unsupported operator"
-
--- Checks if a token is an operator.
-isOperator :: Token -> Bool
-isOperator token = token `elem` [TPlus, TMinus, TStar, TSlash, TPercent, TGreaterThan, TLessThan, TEqual, TNotEqual, TLessEq, TGreaterEq]
-

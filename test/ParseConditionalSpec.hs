@@ -3,7 +3,10 @@ module ParseConditionalSpec where
 import Test.Hspec
 import Lexer (Token(..))
 import AST (Expr(..), Stmt(..), Op(..))
-import Parser (parseConditional, parseExpr, parseParenthesizedExpr, parseBlock, parseOptionalElse, parseStatementsUntilBrace, parseWhileLoop, ParseError(..))
+import Parser_Main
+import Parser_Helper
+import Parser_Statements
+import Parser_Expressions
 
 -- Helper functions to create tokens and expected ASTs for testing
 simpleIfTokens :: [Token]

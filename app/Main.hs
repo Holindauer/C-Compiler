@@ -3,7 +3,7 @@ module Main (main) where
 import System.Environment (getArgs)
 import Lexer
 import AST
-import Parser
+import Parser_Main
 import CodeGen_Main
 
 
