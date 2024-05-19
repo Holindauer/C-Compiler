@@ -2,7 +2,10 @@ module CodeGeneratorIncrementDecrementSpec (main, spec) where
 
 import Test.Hspec
 import AST  -- Only if needed for other parts, not used in the provided snippet
-import CodeGenerator
+import CodeGen_Expressions
+import CodeGen_Statements
+import CodeGen_Main
+
 
 main :: IO ()
 main = hspec spec

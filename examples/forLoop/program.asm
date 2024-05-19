@@ -8,7 +8,7 @@ section .text
 _start:
 	; Call the main subroutine
 	call variable_assignment_0
-	call for_loop_1_for_loop_1
+	call for_loop_1_looper_1
 
 	; Exit the program properly
 	mov rax, 60      ; syscall number for exit
@@ -22,7 +22,7 @@ variable_assignment_0:
 variable_assignment_0_variable_expr_eval_0_0:
 	mov rax, 0
 	ret
-for_loop_1_for_loop_1:
+for_loop_1_looper_1:
 	call for_loop_1_init_stmt_1i_assignment_1
 	jmp for_loop_condition_1
 for_loop_condition_1:

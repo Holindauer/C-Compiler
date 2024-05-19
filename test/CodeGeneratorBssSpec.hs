@@ -2,7 +2,9 @@ module CodeGeneratorBssSpec (main, spec) where
 
 import Test.Hspec
 import AST
-import CodeGenerator
+import CodeGen_Expressions
+import CodeGen_Statements
+import CodeGen_Main
 
 main :: IO ()
 main = hspec spec

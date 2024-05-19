@@ -1,8 +1,10 @@
 # C-Compiler
 
-This repository implements a compiler for a subset of C written in Haskell. C code is compiled into x86-64 assembly code of the NASM specification. 
+This repository implements a compiler for a subset of C that was written in Haskell. C source code is compiled into x86-64 assembly code of the NASM specification. 
 
-The specific subset of C includes assignments, for loops, while loops, and  conditional statements with some restrictions on syntax. Accepted data types include int, float, char, and double. Pointers, arrays, and libraries are not supported. The purpose of this implementation is thus mostly on the educational side for learning how compilation works under the hood. 
+At this stage, the specific subset of C includes assignments, for loops, while loops, and  conditional statements with some restrictions on syntax. Accepted data types include int, float, char, and double. Pointers, arrays, and libraries are not supported. Compilation is also limited to a single main function with no additional functions or global variables.
+
+The purpose of this implementation is thus mostly on the educational side for learning how compilation works under the hood. 
 
 
 # How to Use
