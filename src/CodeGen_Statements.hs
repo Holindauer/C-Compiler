@@ -70,6 +70,30 @@ generateStmtSr optionalPrefix index stmt = case stmt of
   _ -> error "Unsupported statement type" 
 
 
+-- genBodyOfStmts generates a subroutines for each stmt in a list of stmts, packages their calls 
+-- together into a subroutine that will execute them in order, and returns the name of this subroutine
+-- and all the aforementioned subroutine definitions concatenated together into a single string.
+-- NOTE: the baseName is assumed to already be a unique name as part of a larger subroutine (if or loop)
+genBodyOfStmts :: String -> [Stmt] -> (String, String)
+genBodyOfStmts baseName stmts = 
+  let
+    -- gen [(call, def)] for each stmt
+    stmtsIndexed = zipWith (\i stmt -> (baseName ++ "_" ++ show i, i, stmt)) [0..] stmts -- list of [(name, index, stmt)]
+    stmtsSrTuples = map (uncurry3 generateStmtSr) stmtsIndexed                            
+
+    -- concat subroutine calls and definitions into single strings respectively
+    stmtsSrDefs = concatMap (\(call, def) -> def) stmtsSrTuples                             
+    stmtSrCalls = concatMap (\(call, def) -> call) stmtsSrTuples                           
+
+    -- gen subroutine that will call each stmt in the body sequentially
+    execBodySrName = baseName ++ "_execute_body"
+    execBodySrDef = execBodySrName ++ ":\n" ++ stmtSrCalls ++ "\tret\n"   
+
+    -- append the subroutine definitions together
+    fullSrDef = execBodySrDef ++ stmtsSrDefs
+
+  in (execBodySrName, fullSrDef)
+
 ------------------------------------------------------------------------------------------------- Asssignment Subroutine generation
 
 -- genAssignmentSr generates a subroutine call and definitions for the assignment of and expression to a variable
@@ -106,7 +130,6 @@ genAssignmentSr assignSrName index lValue expr =
 genConditionalSr :: String -> Integer -> Expr -> [Stmt] -> [Stmt] -> (String, String)
 genConditionalSr baseName index condition thenBody elseBody = 
   let 
-
     -- subroutine name for the conditional statement 
     condSrName = baseName ++ "_" ++ show index                                            
     
@@ -115,16 +138,8 @@ genConditionalSr baseName index condition thenBody elseBody =
     (condEvalSrDef, condEvalSrName, _) = genExprEvalSr evalCondSrBaseName index condition 
 
     -- gen subroutine defs and calls for each statement in the then-body 
-    thenBodySrBaseName = condSrName ++ "_then_body_" 
-    thenBodyIndexed = zipWith (\i stmt -> (thenBodySrBaseName ++ show i, i, stmt)) [0..] thenBody  -- makes list of [(name, index, stmt)]
-    thenBodySrTuples = map (uncurry3 generateStmtSr) thenBodyIndexed                               -- generate [(call, def)] for each stmt
-    thenBodySrDef = concatMap (\(call, def) -> def) thenBodySrTuples                               -- concat all subroutine definitions into 1 str
-
-    -- gen a subroutine that calls each subroutine in the then-body by concatenating sequential calls 
-    execThenBodySrName = condSrName ++ "_execute_then_body"                                 -- name
-    thenBodySequentialCalls = concatMap (\(call, _) ->  call) thenBodySrTuples              -- concat
-    execThenBodySrDef = execThenBodySrName ++ ":\n" ++ thenBodySequentialCalls ++ "\tret\n" -- subroutine def             
-
+    (thenBodySrName, thenBodySrDef) = genBodyOfStmts (condSrName ++ "_then") thenBody
+    
     -- gen optional else body execution sr def and name (will be empty if no else body)
     (execElseBodySrName, execElseBodySrDef) = genOptionalElseBody baseName elseBody
 
@@ -134,38 +149,21 @@ genConditionalSr baseName index condition thenBody elseBody =
     condSrDef = condSrName ++ ":\n" ++                    -- def
                 "\tcall " ++ condEvalSrName ++ "\n" ++    -- eval condition (result in rax)
                 "\tcmp rax, 1\n" ++                       -- compare val in rax to 1
-                "\tje " ++ execThenBodySrName ++ "\n" ++  -- jump to then-body execution if true
+                "\tje " ++ thenBodySrName ++ "\n" ++      -- jump to then-body execution if true
                 (if not (null elseBody) then "\tjne " ++ execElseBodySrName ++ "\n" else "") ++ -- jump to else body if it exists and cond is false
                 "\tret\n"                               
 
     -- Combine all subroutine definitions together
-    fullSrDef = condSrDef ++ condEvalSrDef ++ execThenBodySrDef ++ thenBodySrDef ++ execElseBodySrDef 
+    fullSrDef = condSrDef ++ condEvalSrDef ++ thenBodySrDef ++ execElseBodySrDef 
 
   in (condSrCall, fullSrDef)
 
 -- genOptionalElseBody generates the subroutine definition and call for each statement in the 
 -- else body of a conditional statement. If there is no else body, it will return empty strings. 
 genOptionalElseBody :: String -> [Stmt] -> (String, String)
-genOptionalElseBody baseName elseBody = 
-  if null elseBody then ("", "")
-  else
-    let
-      -- Generate the subroutines for each statement in the else body
-      elseBodySrBaseName = baseName ++ "_else_body_"
-      elseBodyIndexed = zipWith (\i stmt -> (elseBodySrBaseName ++ show i, i, stmt)) [0..] elseBody  -- Makes [(name, index, stmt)]
-      elseBodySrTuples = map (uncurry3 generateStmtSr) elseBodyIndexed                               -- Generates [(call, def)] for each stmt
-      elseBodySrDefs = concatMap snd elseBodySrTuples                                                -- Concatenate all subroutine definitions
-
-      -- Make a subroutine that executes each statement in the conditional's else body  
-      execElseBodySrName = baseName ++ "_execute_else_body"
-      execElseBodySrDef = execElseBodySrName ++ ":\n" ++      -- Subroutine label
-                          concatMap fst elseBodySrTuples ++   -- Concat sequential calls
-                          "\tret\n"                           -- Return from subroutine
-
-      -- append the subroutine definitions together
-      fullElseBodySrDef = execElseBodySrDef ++ elseBodySrDefs
-
-    in (execElseBodySrName, fullElseBodySrDef)
+genOptionalElseBody baseName elseBody
+  | null elseBody = ("", "")                                       
+  | otherwise     = genBodyOfStmts (baseName ++ "_else") elseBody 
 
 -------------------------------------------------------------------------------------------------- For Loop Subroutine Generation
 
@@ -189,15 +187,7 @@ genForLoopSr baseName index initStmt condition updateStmt body =
     (conditionSrDef, conditionSrName, _) = genExprEvalSr baseName index condition
 
     -- gen subroutine for each stmt in the loop body 
-    bodySrBaseName = baseName ++ "_body_" 
-    bodyIndexed = zipWith (\i stmt -> (bodySrBaseName ++ show i, i, stmt)) [0..] body -- append index to base name
-    bodySrTuples = map (uncurry3 generateStmtSr) bodyIndexed                          -- generate [(call, def)] for each stmt
-    bodySrDef = concatMap (\(call, def) -> def) bodySrTuples                          -- concat subroutine defs into single str
-
-    -- gen subroutine that will execute each stmt in the loop body
-    exectuteBodySrName = baseName ++ "_execute_body_" ++ show index
-    executeBodySrDef = exectuteBodySrName ++ ":\n" ++
-      concatMap (\(call, def) -> call) bodySrTuples ++ "\tret"   -- concat all subroutine definitions into single str
+    (exectuteBodySrName, bodySrDef) = genBodyOfStmts (baseName ++ "_body") body
 
     -- gen subroutine to call the loop counter init, eval loop termination condition and if true call update statement and loop body, 
     forLoopSrName = baseName ++ "_looper_" ++ show index
@@ -219,7 +209,7 @@ genForLoopSr baseName index initStmt condition updateStmt body =
                   "for_loop_end_" ++ show index ++ ":\n" ++ "\tret\n"
 
     -- Combine all subroutine definitions together
-    fullSrDef = forLoopSrDef ++ initStmtSrDef ++ conditionSrDef ++ updateStmtSrDef ++ bodySrDef ++ executeBodySrDef
+    fullSrDef = forLoopSrDef ++ initStmtSrDef ++ conditionSrDef ++ updateStmtSrDef ++ bodySrDef
 
   in (forLoopSrCall, fullSrDef)
 
@@ -238,14 +228,7 @@ genWhileLoopSr baseName index condition body =
     (conditionSrDef, conditionSrName, _) = genExprEvalSr baseName 0 condition
 
     -- gen subroutine for the loop body 
-    bodySrBaseName = baseName ++ "_body" 
-    bodyIndexed = zipWith (\i stmt -> (bodySrBaseName ++ "_" ++ show i ++ "_", i, stmt)) [0..] body -- append index to base name
-    bodySrTuples = map (uncurry3 generateStmtSr) bodyIndexed                                        -- generate [(call, def)] for each stmt
-    bodySrDef = concatMap (\(call, def) -> def) bodySrTuples                                        -- concatenate all subroutine definitions into single str
-
-    -- gen subroutine to execute each statement in the loop body 
-    executeBodyDef = bodySrBaseName ++ ":\n" ++
-      concatMap (\(call, def) -> call) bodySrTuples ++ "\tret"   -- concat all subroutine definitions into single str 
+    (bodySrBaseName, bodySrDef) = genBodyOfStmts (baseName ++ "_body") body
 
     -- generate subroutine for while loop  
     whileLoopSrName = baseName ++ "_looper_" ++ show index
@@ -265,7 +248,7 @@ genWhileLoopSr baseName index condition body =
                   "while_loop_end_" ++ show index ++ ":\n" ++ "\tret\n"
 
     -- Combine all subroutine defs 
-    fullSrDef = whileLoopSrDef ++ conditionSrDef ++ bodySrDef  ++ executeBodyDef
+    fullSrDef = whileLoopSrDef ++ conditionSrDef ++ bodySrDef 
 
   in (whileLoopSrCall, fullSrDef)
 

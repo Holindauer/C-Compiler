@@ -29,34 +29,34 @@ spec = do
 
       -- ensure the subroutine definition is correct
       condDefinition `shouldBe` unlines [
-        
-        -- head of the subroutine chain        
-        "testCond_0:",
-        "\tcall testCond_0_eval_cond_0_0", 
-        "\tcmp rax, 1",                  -- compare the result of the conditional expression evaluation to 1
-        "\tje testCond_0_execute_then_body",  -- tje == jump if equal (to 1)
-        "\tret",
+          
+          -- head of the subroutine chain        
+          "testCond_0:",
+          "\tcall testCond_0_eval_cond_0_0",   -- call the conditional stmt evaluation subroutine
+          "\tcmp rax, 1",                      -- compare the result of the conditional expression evaluation to 1
+          "\tje testCond_0_then_execute_body", -- je == jump if equal (to 1)
+          "\tret", 
 
-        -- condition eval subroutines (simple in this case)
-        "testCond_0_eval_cond_0_0:",
-        "\tmov rax, [x_label]", 
-        "\tret",
-        
-        -- body of the conditional (sequential stmt sr calls in then-body)
-        "testCond_0_execute_then_body:",
-        "\tcall testCond_0_then_body_0x_assignment_0",
-        "\tret",
-        
-        -- then-body stmt sr
-        "testCond_0_then_body_0x_assignment_0:", 
-        "\tcall testCond_0_then_body_0x_assignment_0_x_expr_eval_0_0",     -- call eval of conditional expr (moves it into rax)
-        "\tmov [x_label], rax",
-        "\tret",
+          -- condition eval subroutines (simple literal in this case)
+          "testCond_0_eval_cond_0_0:",
+          "\tmov rax, [x_label]",
+          "\tret",
+          
+          -- body of the conditional (sequential stmt sr calls in then-body)
+          "testCond_0_then_execute_body:",
+          "\tcall testCond_0_then_0x_assignment_0",  -- call the first assignment in the then-body
+          "\tret",
+          
+          -- then-body stmt sr
+          "testCond_0_then_0x_assignment_0:",
+          "\tcall testCond_0_then_0x_assignment_0_x_expr_eval_0_0",    -- call eval of conditional expr (moves it into rax)
+          "\tmov [x_label], rax",
+          "\tret",
 
-        -- eval of conditional expr (simple literal in this case)
-        "testCond_0_then_body_0x_assignment_0_x_expr_eval_0_0:",
-        "\tmov rax, 10",
-        "\tret"]
+          -- eval of conditional expr (simple literal in this case)
+          "testCond_0_then_0x_assignment_0_x_expr_eval_0_0:",
+          "\tmov rax, 10",
+          "\tret"]
 
     it "Conditiona subroutine w/ multiple statements in the body" $ do
             
@@ -73,44 +73,44 @@ spec = do
     
         -- ensure the subroutine definition is correct
         condDefinition `shouldBe` unlines [
-          
-          -- head of the subroutine chain        
-          "testCond_1:",
-          "\tcall testCond_1_eval_cond_1_1",  -- call the conditional stmt evaluation subroutine
-          "\tcmp rax, 1",                           -- compare the result of the conditional expression evaluation to 1
-          "\tje testCond_1_execute_then_body",           -- tje == jump if equal (to 1)
-          "\tret", 
+            
+            -- head of the subroutine chain        
+            "testCond_1:",
+            "\tcall testCond_1_eval_cond_1_1",  -- call the conditional stmt evaluation subroutine
+            "\tcmp rax, 1",                     -- compare the result of the conditional expression evaluation to 1
+            "\tje testCond_1_then_execute_body",-- je == jump if equal (to 1)
+            "\tret", 
 
-          -- condition eval subroutines (simple literal in this case)
-          "testCond_1_eval_cond_1_1:",
-          "\tmov rax, [x_label]",
-          "\tret",
-        
-          -- body of the conditional (sequential stmt sr calls in then-body)
-          "testCond_1_execute_then_body:",
-          "\tcall testCond_1_then_body_0x_assignment_0", -- call the first assignment in the then-body
-          "\tcall testCond_1_then_body_1y_assignment_1", -- call the second assignment in the then-body
-          "\tret",
+            -- condition eval subroutines (simple literal in this case)
+            "testCond_1_eval_cond_1_1:",
+            "\tmov rax, [x_label]",
+            "\tret",
+            
+            -- body of the conditional (sequential stmt sr calls in then-body)
+            "testCond_1_then_execute_body:",
+            "\tcall testCond_1_then_0x_assignment_0", -- call the first assignment in the then-body
+            "\tcall testCond_1_then_1y_assignment_1", -- call the second assignment in the then-body
+            "\tret",
+            
+            -- then-body stmt sr chain 1
+            "testCond_1_then_0x_assignment_0:",
+            "\tcall testCond_1_then_0x_assignment_0_x_expr_eval_0_0",
+            "\tmov [x_label], rax",
+            "\tret",
+            
+            "testCond_1_then_0x_assignment_0_x_expr_eval_0_0:",  
+            "\tmov rax, 10",
+            "\tret",
           
-          -- then-body stmt sr chain 1
-          "testCond_1_then_body_0x_assignment_0:",
-          "\tcall testCond_1_then_body_0x_assignment_0_x_expr_eval_0_0",
-          "\tmov [x_label], rax",
-          "\tret",
-          
-          "testCond_1_then_body_0x_assignment_0_x_expr_eval_0_0:",  
-          "\tmov rax, 10",
-          "\tret",
-        
-        -- them body stmt sr chain 2
-          "testCond_1_then_body_1y_assignment_1:",
-          "\tcall testCond_1_then_body_1y_assignment_1_y_expr_eval_1_0",
-          "\tmov [y_label], rax",
-          "\tret",
-          
-          "testCond_1_then_body_1y_assignment_1_y_expr_eval_1_0:",
-          "\tmov rax, 20",
-          "\tret"]
+            -- them body stmt sr chain 2
+            "testCond_1_then_1y_assignment_1:",
+            "\tcall testCond_1_then_1y_assignment_1_y_expr_eval_1_0",
+            "\tmov [y_label], rax",
+            "\tret",
+            
+            "testCond_1_then_1y_assignment_1_y_expr_eval_1_0:",
+            "\tmov rax, 20",
+            "\tret"]
 
     describe "Code Generator Conditional Subroutine Creation For If Statements With Else Statements" $ do
 
@@ -129,46 +129,46 @@ spec = do
     
             -- ensure the subroutine definition is correct
             condDefinition `shouldBe` unlines [
-        
-                -- head of the subroutine chain        
-                "testCond_2:",
-                "\tcall testCond_2_eval_cond_2_2",   -- call the conditional stmt evaluation subroutine
-                "\tcmp rax, 1",                      -- compare the result of the conditional expression evaluation to 1
-                "\tje testCond_2_execute_then_body", -- tje == jump if equal (to 1)
-                "\tjne testCond_execute_else_body",  -- jne == jump if not equal (to 1)
-                "\tret", 
+              
+              -- head of the subroutine chain        
+              "testCond_2:",
+              "\tcall testCond_2_eval_cond_2_2",   -- call the conditional stmt evaluation subroutine
+              "\tcmp rax, 1",                      -- compare the result of the conditional expression evaluation to 1
+              "\tje testCond_2_then_execute_body", -- je == jump if equal (to 1)
+              "\tjne testCond_else_execute_body",  -- jne == jump if not equal (to 1)
+              "\tret", 
 
-                -- condition eval subroutines (simple literal in this case)
-                "testCond_2_eval_cond_2_2:",  
-                "\tmov rax, [x_label]",
-                "\tret",
-                
-                -- body of the conditional (sequential stmt sr calls in then-body)
-                "testCond_2_execute_then_body:",
-                "\tcall testCond_2_then_body_0x_assignment_0",  
-                "\tret",
-                
-                -- then-body stmt sr chain
-                "testCond_2_then_body_0x_assignment_0:",
-                "\tcall testCond_2_then_body_0x_assignment_0_x_expr_eval_0_0",        
-                "\tmov [x_label], rax",
-                "\tret",
-        
-                "testCond_2_then_body_0x_assignment_0_x_expr_eval_0_0:",
-                "\tmov rax, 10",
-                "\tret",
-                
-                -- else-body stmt sr chain
-                "testCond_execute_else_body:",
-                "\tcall testCond_else_body_0x_assignment_0",
-                "\tret",
+              -- condition eval subroutines (simple literal in this case)
+              "testCond_2_eval_cond_2_2:",  
+              "\tmov rax, [x_label]",
+              "\tret",
+              
+              -- body of the conditional (sequential stmt sr calls in then-body)
+              "testCond_2_then_execute_body:",
+              "\tcall testCond_2_then_0x_assignment_0",  
+              "\tret",
+              
+              -- then-body stmt sr chain
+              "testCond_2_then_0x_assignment_0:",
+              "\tcall testCond_2_then_0x_assignment_0_x_expr_eval_0_0",        
+              "\tmov [x_label], rax",
+              "\tret",
 
-                -- else-body stmt sr chain
-                "testCond_else_body_0x_assignment_0:",
-                "\tcall testCond_else_body_0x_assignment_0_x_expr_eval_0_0",
-                "\tmov [x_label], rax",
-                "\tret",
+              "testCond_2_then_0x_assignment_0_x_expr_eval_0_0:",
+              "\tmov rax, 10",
+              "\tret",
+              
+              -- else-body stmt sr chain
+              "testCond_else_execute_body:",
+              "\tcall testCond_else_0x_assignment_0",
+              "\tret",
 
-                "testCond_else_body_0x_assignment_0_x_expr_eval_0_0:",
-                "\tmov rax, 20",
-                "\tret"]
+              -- else-body stmt sr chain
+              "testCond_else_0x_assignment_0:",
+              "\tcall testCond_else_0x_assignment_0_x_expr_eval_0_0",
+              "\tmov [x_label], rax",
+              "\tret",
+
+              "testCond_else_0x_assignment_0_x_expr_eval_0_0:",
+              "\tmov rax, 20",
+              "\tret"]

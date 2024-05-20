@@ -6,14 +6,11 @@ global _start
 section .text
 
 _start:
-	; Call the main subroutine
 	call variable_assignment_0
 	call for_loop_1_looper_1
-
-	; Exit the program properly
-	mov rax, 60      ; syscall number for exit
-	xor rdi, rdi     ; exit status 0
-	syscall          ; perform the system call to exit
+	mov rax, 60 
+	xor rdi, rdi
+	syscall
 
 variable_assignment_0:
 	call variable_assignment_0_variable_expr_eval_0_0
@@ -29,7 +26,7 @@ for_loop_condition_1:
 	call for_loop_1_1
 	cmp rax, 0
 	je for_loop_end_1
-	call for_loop_1_execute_body_1
+	call for_loop_1_body_execute_body
 	call for_loop_1_update_stmt_1increment_11
 	jmp for_loop_condition_1
 for_loop_end_1:
@@ -60,6 +57,9 @@ for_loop_1_1:
 for_loop_1_update_stmt_1increment_11:
 	inc [i_label]
 	ret
+for_loop_1_body_execute_body:
+	call for_loop_1_body_0variable_assignment_0
+	ret
 for_loop_1_body_0variable_assignment_0:
 	call for_loop_1_body_0variable_assignment_0_variable_expr_eval_0_0
 	mov [variable_label], rax
@@ -77,7 +77,4 @@ for_loop_1_body_0variable_assignment_0_variable_expr_eval_0_0:
 	mov rbx, rax
 	pop rax
 	add rax, rbx
-	ret
-for_loop_1_execute_body_1:
-	call for_loop_1_body_0variable_assignment_0
 	ret
