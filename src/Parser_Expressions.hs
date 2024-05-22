@@ -6,8 +6,9 @@ import AST
 import Debug.Trace (traceShow, trace)
 
 
--- Parser_Expressions.hs contains the functions for parsing expressions in the program.
--- The parseExpr function is the main entry point for parsing expressions.
+-- Parser_Expressions.hs contains the functions for parsing expressions out of a list of  
+-- lexed tokens  the program. The parseExpr function is the main entry point for parsing 
+-- of expressions and delegates control to other functions based on the expression type.
 
 -------------------------------------------------------------------------------------------------- Expression Parsing
 
@@ -32,15 +33,21 @@ parseExpr tokens = case tokens of
                     then continueParsingBinaryExpr expr remainingTokens
                     else Right (expr, remainingTokens)
 
--- Parses parenthesized expressions ensuring correct closure of parentheses.
+
+-- Parses a parenthized expression and ensures the correct closure of parentheses.
+-- NOTE: Curly braces can contain multiple statements but parentheses should only have one.
+-- The expection are loop headers, which are handled differently in Parser_Statements.hs
 parseParenthesizedExpr :: LexedTokens -> ParserResult (Expr, LexedTokens)
 parseParenthesizedExpr (TLparen : rest) = 
 
-    -- Parse the expression inside the parentheses
+    -- Parse the expression after parentheses, pass remaining tokens into the lambda.
     parseExpr rest >>= \(expr, afterExpr) ->
+
+        -- expect parentheses to closure after expr is parsed
         case afterExpr of
             (TRparen : remainingTokens) -> Right (expr, remainingTokens)
             _ -> Left (InvalidSyntax "Expected closing parenthesis")
+
 parseParenthesizedExpr _ = Left (InvalidSyntax "Expected opening parenthesis")
 
 -- Primary expression parsing.
@@ -52,8 +59,20 @@ parsePrimaryExpr (token : rest) = case token of
     TIntLit i -> Right (IntLit (toInteger i), rest)
     TFloatLit f -> Right (FloatLit f, rest)
     TDoubleLit d -> Right (DoubleLit d, rest)
+    TCharLit c -> Right (CharLit c, rest)
     TIdent var -> Right (Var var, rest)
+    
+    -- unary expressions
+    TMinus -> parseExpr rest >>= \(expr, remainingTokens) -> Right (UnaryOp Neg expr, remainingTokens)
+    TNot -> parseExpr rest >>= \(expr, remainingTokens) -> Right (UnaryOp LogicalNot expr, remainingTokens)
+    TIncrement -> parseExpr rest >>= \(expr, remainingTokens) -> Right (UnaryOp Increment expr, remainingTokens)
+    TDecrement -> parseExpr rest >>= \(expr, remainingTokens) -> Right (UnaryOp Decrement expr, remainingTokens)
+
+
+
     _ -> Left (InvalidSyntax "parsePrimaryExpr: Invalid primary expression")
+
+
 
 -- continueParsingBinaryExpr is called within parseExpr to continue an expression that is determined to
 -- be a binary expression. It returns a ParserResult that contains either the parsed expression and the
