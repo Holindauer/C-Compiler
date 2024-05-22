@@ -42,7 +42,7 @@ data Stmt
   | ElseStmt [Stmt]                        -- else statement with body statements (Else If Statements are Else statements whose body is an If statement)
   | WhileStmt Expr [Stmt]                  -- while loop with condition and body statements
   | ForStmt Stmt Expr Stmt [Stmt]          -- for loop with init, condition, update, and body statements
-  | Return Expr                            -- return statement with expression
+  | ReturnStmt Expr                        -- return statement with expression
   deriving (Eq, Show)
 
 type Program = [Stmt]

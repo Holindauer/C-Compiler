@@ -25,7 +25,7 @@ spec = do
       tokens `shouldBe` expectedTokens
 
       let parsed = parseProgram tokens
-      let expectedAst = Right ([SimpleDeclaration "int" (Var "x")], [])
+      let expectedAst = Right ([SimpleDeclaration "int" (Var "x"), ReturnStmt (IntLit 0)], [])
       parsed `shouldBe` expectedAst
 
     -- Test case for a declaration with an assignment
@@ -36,7 +36,7 @@ spec = do
       tokens `shouldBe` expectedTokens
 
       let parsed = parseProgram tokens
-      let expectedAst = Right ([DeclarationAssignment "int" "x" (IntLit 5)], [])
+      let expectedAst = Right ([DeclarationAssignment "int" "x" (IntLit 5), ReturnStmt (IntLit 0)], [])
       parsed `shouldBe` expectedAst
 
     -- Test case for a conditional statement with a block
@@ -47,7 +47,7 @@ spec = do
       tokens `shouldBe` expectedTokens
 
       let parsed = parseProgram tokens
-      let expectedAst = Right ([IfStmt (BinOp LessThan (Var "x") (IntLit 5)) [AssignStmt "x" (BinOp Add (Var "x") (IntLit 1))] []], [])
+      let expectedAst = Right ([IfStmt (BinOp LessThan (Var "x") (IntLit 5)) [AssignStmt "x" (BinOp Add (Var "x") (IntLit 1))] [], ReturnStmt (IntLit 0)], [])
       parsed `shouldBe` expectedAst
 
     -- Test case for a simple while loop
@@ -58,7 +58,7 @@ spec = do
       tokens `shouldBe` expectedTokens
 
       let parsed = parseProgram tokens
-      let expectedAst = Right ([WhileStmt (BinOp LessThan (Var "x") (IntLit 5)) [AssignStmt "x" (BinOp Add (Var "x") (IntLit 1))]], [])
+      let expectedAst = Right ([WhileStmt (BinOp LessThan (Var "x") (IntLit 5)) [AssignStmt "x" (BinOp Add (Var "x") (IntLit 1))], ReturnStmt (IntLit 0)], [])
       parsed `shouldBe` expectedAst
 
 
@@ -70,7 +70,7 @@ spec = do
       tokens `shouldBe` expectedTokens
       
       let parsed = parseProgram tokens
-      let expectedAst = Right ([ForStmt (DeclarationAssignment "int" "i" (IntLit 0)) (BinOp LessThan (Var "i") (IntLit 5)) (IncrementStmt "i") [AssignStmt "x" (BinOp Add (Var "x") (IntLit 1))]], [])
+      let expectedAst = Right ([ForStmt (DeclarationAssignment "int" "i" (IntLit 0)) (BinOp LessThan (Var "i") (IntLit 5)) (IncrementStmt "i") [AssignStmt "x" (BinOp Add (Var "x") (IntLit 1))], ReturnStmt (IntLit 0)], [])
       parsed `shouldBe` expectedAst
 
 
@@ -90,7 +90,9 @@ spec = do
                                   , DeclarationAssignment "float" "y" (IntLit 20) 
                                   , ForStmt (DeclarationAssignment "int" "i" (IntLit 0)) (BinOp LessThan (Var "i") (IntLit 5)) (IncrementStmt "i") [AssignStmt "x" (BinOp Add (Var "x") (Var "x"))]
                                   , IfStmt (BinOp LessThan (Var "x") (IntLit 5)) [AssignStmt "x" (BinOp Add (Var "x") (IntLit 1))] []
-                                  , WhileStmt (BinOp GreaterThan (Var "y") (IntLit 0)) [AssignStmt "y" (BinOp Subtract (Var "y") (IntLit 1))]]
+                                  , WhileStmt (BinOp GreaterThan (Var "y") (IntLit 0)) [AssignStmt "y" (BinOp Subtract (Var "y") (IntLit 1))]
+                                  , ReturnStmt (IntLit 0)
+                                  ]
                                   , [])
 
 

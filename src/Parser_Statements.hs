@@ -18,27 +18,29 @@ import Debug.Trace (traceShow, trace)
 parseStmt :: LexedTokens -> ParserResult (Maybe Stmt, LexedTokens)
 parseStmt [] = Left UnexpectedEndOfInput
 parseStmt (TEOF : rest) = Right (Nothing, rest)                             -- handle end of program file
-parseStmt (TReturn : TIntLit 0 : TSemicolon : rest) = Right (Nothing, rest) -- handle return 0; as end of program
-parseStmt (t:ts) = trace ("parseStmt: Processing " ++ show t ++ " with remaining " ++ show ts) $ case t of
+parseStmt (t:ts) = case t of
 
-    -- Handle declarations 
+    -- declarations 
     TInt -> fmapJust $ parseDeclaration "int" ts
     TChar -> fmapJust $ parseDeclaration "char" ts
     TDouble -> fmapJust $ parseDeclaration "double" ts
     TFloat -> fmapJust $ parseDeclaration "float" ts
 
-    -- Handle assignments
+    -- assignments
     TIdent var -> fmapJust $ parseAssignment var ts
 
-    -- Handle conditionals.
+    -- conditionals.
     TIf -> fmapJust $ parseConditional (t:ts)
 
-    -- Handle loops
+    -- loops
     TWhile -> fmapJust $ parseWhileLoop (t:ts)
     TFor -> fmapJust $ parseForLoop (t:ts)
 
     -- Right brace indicates end of main function
     TRbrace -> Right (Nothing, ts) -- Skip closing brace
+
+    -- return stmt
+    TReturn -> fmapJust $ parseReturnStmt (t:ts) 
 
     _ -> Left (InvalidSyntax $ "Invalid statement at token: " ++ show t)
 
@@ -111,6 +113,7 @@ parseAssignment _ _ = Left (InvalidSyntax "Malformed assignment statement")
 -- @dev The type declaration is consumed prior to calling this function
 parseDeclaration :: String -> LexedTokens -> ParserResult (Stmt, LexedTokens)
 parseDeclaration dataType tokens = case tokens of
+
     -- Simple Declaration: int x;
     (TIdent var : TSemicolon : rest) ->
         Right (SimpleDeclaration dataType (Var var), rest)
@@ -306,3 +309,20 @@ parseUpdateStatement tokens = case tokens of
     (token : _) -> trace ("Unexpected token in update statement: " ++ show token) $
          Left (UnexpectedToken token)
     _ -> Left (InvalidSyntax "parseUpdateStatement: Invalid or missing update statement in for loop header")
+
+-------------------------------------------------------------------------------------------------- Return Statement Delegate
+
+-- parseReturnStmt parses a return statement, handling literals, variables, or expressions, 
+-- and packages it into a ParserResult. This version directly returns a Stmt without Maybe.
+parseReturnStmt :: LexedTokens -> ParserResult (Stmt, LexedTokens)
+parseReturnStmt tokens = case break (== TSemicolon) tokens of -- break on semicolon
+
+    -- Handle expressions
+    (TReturn : exprTokens, semicolon : finalTokens) ->
+        case parseExpr exprTokens of
+            Right (expr, _) -> Right (ReturnStmt expr, finalTokens)
+            Left err -> Left err
+
+    -- Error handling for cases such as missing semicolon
+    (_, []) -> Left (InvalidSyntax "Missing semicolon at end of return statement")
+    _ -> Left (InvalidSyntax "Malformed return statement")

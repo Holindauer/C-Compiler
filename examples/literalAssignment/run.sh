@@ -21,4 +21,4 @@ echo -e "Executing program"
 ./program
 
 # delete object and executable file
-rm program.o program
+# rm program.o program  # uncomment for checking return status w/ echo $?

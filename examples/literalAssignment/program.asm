@@ -6,18 +6,15 @@ global _start
 section .text
 
 _start:
-	; Call the main subroutine
 	call a_assignment_0
-
-	; Exit the program properly
-	mov rax, 60      ; syscall number for exit
-	xor rdi, rdi     ; exit status 0
-	syscall          ; perform the system call to exit
+	mov rax, 60 
+	xor rdi, rdi
+	syscall
 
 a_assignment_0:
-	call a_expr_eval_0_0
+	call a_assignment_0_a_expr_eval_0_0
 	mov [a_label], rax
 	ret
-a_expr_eval_0_0:
+a_assignment_0_a_expr_eval_0_0:
 	mov rax, 10
 	ret

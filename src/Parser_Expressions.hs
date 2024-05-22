@@ -68,11 +68,7 @@ parsePrimaryExpr (token : rest) = case token of
     TIncrement -> parseExpr rest >>= \(expr, remainingTokens) -> Right (UnaryOp Increment expr, remainingTokens)
     TDecrement -> parseExpr rest >>= \(expr, remainingTokens) -> Right (UnaryOp Decrement expr, remainingTokens)
 
-
-
     _ -> Left (InvalidSyntax "parsePrimaryExpr: Invalid primary expression")
-
-
 
 -- continueParsingBinaryExpr is called within parseExpr to continue an expression that is determined to
 -- be a binary expression. It returns a ParserResult that contains either the parsed expression and the

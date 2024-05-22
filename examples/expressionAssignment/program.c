@@ -1,6 +1,6 @@
 int main(void){
 
-    int variable = 1 + 2;
+    int variable = 10 + -2;
 
-    return 0;
+    return variable;
 }

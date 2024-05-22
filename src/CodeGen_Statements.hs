@@ -67,6 +67,11 @@ generateStmtSr optionalPrefix index stmt = case stmt of
     let whileLoopSrName = optionalPrefix ++ "while_loop_" ++ show index
     in genWhileLoopSr whileLoopSrName index condition body
 
+  -- Return stmt
+  ReturnStmt expr -> 
+    let returnSrName = optionalPrefix ++ "return_stmt_" ++ show index
+    in genReturnStmtSr returnSrName index expr
+
   _ -> error "Unsupported statement type" 
 
 
@@ -215,7 +220,6 @@ genForLoopSr baseName index initStmt condition updateStmt body =
 
 -------------------------------------------------------------------------------------------------- While Loop Subroutine Generation
 
-
 -- genWhileLoopSr generates the NASM assembly code for a while loop. This involves generating a subroutine
 -- for the evaluation of the conditional expression, a subroutine for the sequential execution of each statement within
 -- the body of the while loop, and a subroutine that will call the conditional eval subroutine and, if the result is true,
@@ -282,3 +286,33 @@ genDecrementSr baseName index varName =
                      "\tdec [" ++ varName ++ "_label]\n" ++ "\tret\n"  -- dec val in var and return
 
   in (decrementSrCall, decrementSrDef)
+
+-------------------------------------------------------------------------------------------------- Return Stmt Subroutine Generation
+
+-- genReturnStmtSr gemnerates a subroutine call and associated definitions for a return statement. 
+-- At this stage, the compiler supports only the main function, so the return statement will exit
+-- the program with a syscall to exit with the value being return set as the exit code. In the 
+-- future, when user defined functions are added, the return statement must differentiate between
+-- the program exit and a function return.
+genReturnStmtSr :: String -> Integer -> Expr -> (String, String)
+genReturnStmtSr baseName index expr = 
+  let
+    -- gen subroutine for expression evaluation
+    (exprEvalSrDef, exprEvalSrName, _) = genExprEvalSr baseName index expr
+
+    -- gen subroutine for return statement
+    returnSrName = baseName ++ "_return_" ++ show index
+    returnSrCall = "\tcall " ++ returnSrName ++ "\n"
+
+    returnSrDef = returnSrName ++ ":\n" ++
+                  "\tcall " ++ exprEvalSrName ++ "\n" ++   -- eval expr
+                  "\tmov rdi, rax\n" ++                    -- move result into rdi
+                  "\tmov rax, 60\n" ++                     -- syscall for exit
+                  "\tsyscall\n"                            -- exit
+
+    -- Combine all subroutine defs
+    fullSrDef = returnSrDef ++ exprEvalSrDef
+
+  in (returnSrCall, fullSrDef)
+
+

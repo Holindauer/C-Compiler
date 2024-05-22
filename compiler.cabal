@@ -79,6 +79,7 @@ test-suite compiler-test
       ParseConditionalSpec
       ParseDeclarationSpec
       ParseForLoopSpec
+      ParseReturnStatementSpec
       ParseWhileLoopSpec
       Paths_compiler
   autogen-modules:

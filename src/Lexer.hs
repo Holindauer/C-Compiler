@@ -16,7 +16,7 @@ data Token =
   TInt | TChar | TDouble | TFloat | TVoid
 
   -- Literals and identifiers
-  | TIntLit Int | TDoubleLit Double | TIdent String  | TFloatLit Float
+  | TIntLit Int | TDoubleLit Double | TIdent String  | TFloatLit Float | TCharLit Char 
 
   -- Operators
   | TAssign | TPlus | TMinus | TStar | TSlash | TPercent | TEqual | TNotEqual 
