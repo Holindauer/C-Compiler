@@ -1,6 +1,6 @@
 int main(void){
 
-    int variable = 2;
+    int variable = 1;
 
 
     if (variable == 1){

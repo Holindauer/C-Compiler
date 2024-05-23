@@ -7,6 +7,7 @@ section .text
 _start:
 	call variable_assignment_0
 	call cond_stmt_1_1
+	call return_stmt_2_return_2
 	mov rax, 60 
 	xor rdi, rdi
 	syscall
@@ -16,7 +17,7 @@ variable_assignment_0:
 	mov [variable_label], rax
 	ret
 variable_assignment_0_variable_expr_eval_0_0:
-	mov rax, 0
+	mov rax, 2
 	ret
 cond_stmt_1_1:
 	call cond_stmt_1_1_eval_cond_1_1
@@ -105,7 +106,7 @@ cond_stmt_1_else_0else_stmt_0cond_stmt_0_0_then_0cond_stmt_0_0_then_0variable_as
 	mov [variable_label], rax
 	ret
 cond_stmt_1_else_0else_stmt_0cond_stmt_0_0_then_0cond_stmt_0_0_then_0variable_assignment_0_variable_expr_eval_0_0:
-	mov rax, 3
+	mov rax, 2
 	ret
 cond_stmt_1_else_0else_stmt_0cond_stmt_0_0_then_0cond_stmt_0_else_execute_body:
 	call cond_stmt_1_else_0else_stmt_0cond_stmt_0_0_then_0cond_stmt_0_else_0else_stmt_0cond_stmt_0_0
@@ -127,4 +128,12 @@ cond_stmt_1_else_0else_stmt_0cond_stmt_0_0_then_0cond_stmt_0_else_0else_stmt_0co
 	ret
 cond_stmt_1_else_0else_stmt_0cond_stmt_0_0_then_0cond_stmt_0_else_0else_stmt_0cond_stmt_0_0_then_0variable_assignment_0_variable_expr_eval_0_0:
 	mov rax, 4
+	ret
+return_stmt_2_return_2:
+	call return_stmt_2_2
+	mov rdi, rax
+	mov rax, 60
+	syscall
+return_stmt_2_2:
+	mov rax, [variable_label]
 	ret
