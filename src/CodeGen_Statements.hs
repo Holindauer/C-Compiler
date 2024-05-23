@@ -10,6 +10,20 @@ import Data.List (foldl', zipWith)
 import Debug.Trace (traceShow, trace)
 import qualified Data.Map as Map
 
+-- Issue:
+-- Currently, the code generator generates subroutines using the same register, rax, for storage and return 
+-- of all types of expression. This is fine for ints and char but an oversight regarding floating point type 
+-- numbers which require different registers when handling. 
+
+-- Gameplan:
+-- I think the design implemented should be easily modified to accomodate for this. It will require that during
+-- the generating of a subroutine chain for an expression eval, the type of the expr is passed along with the 
+-- expr itself. Assuming correct syntax, pattern matching for the correct implementation of the handling of 
+-- float/double vs int/char types should be straightforward. As long as the entire chain is consistent and the 
+-- correct return register is known by the function calling the expr eval (in order to make the final assignment)
+-- it should still work
+
+
 
 -- CodeGen_Statements.hs contains functions for generating NASM assembly code for each type of statement. 
 -- generateStmtSr is the master handler for Stmts collected by the parser, it delegates control to the 
@@ -107,17 +121,25 @@ genBodyOfStmts baseName stmts =
 -- rax register and then moved directly into the memory location of the variable.
 -- @param [name of subroutine], [index of stmt], [name of variable], [expression to be assigned]
 genAssignmentSr :: String -> Integer -> String -> Expr -> (String, String)
-genAssignmentSr assignSrName index lValue expr = 
+genAssignmentSr assignSrName index lValue expr = case expr of 
   let
     -- gen expression eval subroutine
     exprEvalSrBaseName = assignSrName ++ "_" ++ lValue ++ "_expr_eval_" ++ show index -- unique sr name
     (exprEvalSrDef, exprEvalSrName, _) = genExprEvalSr exprEvalSrBaseName 0 expr
 
+    -- type specific move command
+    let moveCommand = case expr of
+          IntLit _ -> "\tmov [" ++ lValue ++ "_label], rax\n" 
+          FloatLit _ -> "\tmovss [" ++ lValue ++ "_label], xmm0\n"
+          DoubleLit _ -> "\tmovsd [" ++ lValue ++ "_label], xmm1\n"
+          CharLit _ -> "\tmov [" ++ lValue ++ "_label], rax\n" 
+          _ -> error "Unsupported expression type"
+
     -- gen sr call and def for assignment of expression to variable
     assignSrCall = "\tcall " ++ assignSrName ++ "\n"
     assignmentSrDef = assignSrName ++ ":\n" ++
                       "\tcall " ++ exprEvalSrName ++ "\n" ++      -- call expr eval sr, result in rax
-                      "\tmov [" ++ lValue ++ "_label], rax\n" ++  -- Move value of rax directly into var's mem
+                      moveCommand ++                              -- move result into var mem
                       "\tret\n"                                   -- Return from subroutine
 
     -- Combine the expr eval and assignment subroutine definitions together
