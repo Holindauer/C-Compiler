@@ -120,4 +120,4 @@ lexIdent c cs = case ident of
 
   -- This 'where clause' will split the full identifier from the rest of the string. The remaining
   -- string is recursively passed back to the lexer function for further processing.
-  where (ident, rest) = span isAlphaNum (c:cs)
+  where (ident, rest) = span (\x -> isAlphaNum x || x == '_') (c:cs)
