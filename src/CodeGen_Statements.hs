@@ -126,16 +126,16 @@ genAssignmentSr assignSrName index lValue expr typeMap =
   let
     -- Generate expression evaluation subroutine
     exprEvalSrBaseName = assignSrName ++ "_" ++ lValue ++ "_expr_eval_" ++ show index
-    (exprEvalSrDef, exprEvalSrName, _) = genExprEvalSr exprEvalSrBaseName 0 expr 
+    (exprEvalSrDef, exprEvalSrName, _) = genExprEvalSr exprEvalSrBaseName 0 expr typeMap
 
     -- Type specific move command
-    moveCommand = moveOutputIntoVarInstr (getExprType expr) lValue
+    moveCommand = moveOutputIntoVarInstr (getExprType expr typeMap) lValue
 
     -- Generate subroutine call and def for assignment of expr to var
     assignSrCall = "\tcall " ++ assignSrName ++ "\n"
     assignmentSrDef = assignSrName ++ ":\n" ++
-                      "\tcall " ++ exprEvalSrName ++ "\n" ++      -- Call expr eval subroutine, result in rax
-                      moveCommand ++ "\tret\n"                    -- Move result into var mem and return 
+                      "\tcall " ++ exprEvalSrName ++ "\n" ++    -- call expr eval
+                      moveCommand ++ "\tret\n"                  -- move result into var mem and return
 
     -- Combine the expr eval and assignment subroutine definitions
     fullSrDef = assignmentSrDef ++ exprEvalSrDef
@@ -157,7 +157,7 @@ genConditionalSr baseName index condition thenBody elseBody typeMap =
     
     -- gen conditional eval subroutine   
     evalCondSrBaseName = condSrName ++ "_eval_cond_" ++ show index      
-    (condEvalSrDef, condEvalSrName, _) = genExprEvalSr evalCondSrBaseName index condition 
+    (condEvalSrDef, condEvalSrName, _) = genExprEvalSr evalCondSrBaseName index condition typeMap
 
     -- gen subroutine defs and calls for each statement in the then-body 
     (thenBodySrName, thenBodySrDef) = genBodyOfStmts (condSrName ++ "_then") thenBody typeMap
@@ -206,7 +206,7 @@ genForLoopSr baseName index initStmt condition updateStmt body typeMap =
     (updateStmtSrCall, updateStmtSrDef) = generateStmtSr updateStmtSrName index updateStmt typeMap
 
     -- gen subroutine for loop termination condition eval
-    (conditionSrDef, conditionSrName, _) = genExprEvalSr baseName index condition
+    (conditionSrDef, conditionSrName, _) = genExprEvalSr baseName index condition typeMap
 
     -- gen subroutine for each stmt in the loop body 
     (exectuteBodySrName, bodySrDef) = genBodyOfStmts (baseName ++ "_body") body typeMap
@@ -246,7 +246,7 @@ genWhileLoopSr baseName index condition body typeMap =
   let
     
     -- gen subroutine for termination condition expr
-    (conditionSrDef, conditionSrName, _) = genExprEvalSr baseName 0 condition
+    (conditionSrDef, conditionSrName, _) = genExprEvalSr baseName 0 condition typeMap
 
     -- gen subroutine for the loop body 
     (bodySrBaseName, bodySrDef) = genBodyOfStmts (baseName ++ "_body") body typeMap
@@ -315,7 +315,7 @@ genReturnStmtSr :: String -> Integer -> Expr -> TypeMap -> (String, String)
 genReturnStmtSr baseName index expr typeMap = 
   let
     -- gen subroutine for expression evaluation
-    (exprEvalSrDef, exprEvalSrName, _) = genExprEvalSr baseName index expr
+    (exprEvalSrDef, exprEvalSrName, _) = genExprEvalSr baseName index expr typeMap
 
     -- gen subroutine for return statement
     returnSrName = baseName ++ "_return_" ++ show index

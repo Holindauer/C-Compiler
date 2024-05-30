@@ -15,33 +15,33 @@ import Debug.Trace (traceShow, trace)
 -- value into a temp register. Unary/Binary expressions are the recursive case, resulting in depth first chaining
 -- of operations.
 -- @param [subroutine base name], [num subroutines already in chain], [the expression], [the type of the expression] 
-genExprEvalSr :: String -> Integer -> Expr -> (String, String, Integer)
-genExprEvalSr baseName index expr = case expr of 
+genExprEvalSr :: String -> Integer -> Expr -> TypeMap -> (String, String, Integer)
+genExprEvalSr baseName index expr typeMap = case expr of 
 
   -- Base Cases: expr is a literal or variable
   IntLit value  ->
-    literalEvalSr baseName index (show value) (getExprType expr)
+    literalEvalSr baseName index (show value) (getExprType expr typeMap)
   FloatLit value ->
-    literalEvalSr baseName index (show value) (getExprType expr)
+    literalEvalSr baseName index (show value) (getExprType expr typeMap)
   DoubleLit value ->
-    literalEvalSr baseName index (show value) (getExprType expr)
+    literalEvalSr baseName index (show value) (getExprType expr typeMap)
   CharLit value ->
-    literalEvalSr baseName index (show value) (getExprType expr)
+    literalEvalSr baseName index (show value) (getExprType expr typeMap)
 
   -- Var case: move the value of the variable into a register
   Var varName ->  
-    variableEvalSr baseName index varName (getExprType expr)
+    variableEvalSr baseName index varName (getExprType expr typeMap)
 
   -- Recursive Cases: expr is a unary or binary operation 
   UnaryOp op subExpr ->
-    unaryOpEvalSr baseName index op subExpr
+    unaryOpEvalSr baseName index op subExpr typeMap
   BinOp op lhs rhs ->
-    binaryOpEvalSr baseName index op lhs rhs
+    binaryOpEvalSr baseName index op lhs rhs typeMap
     
   _ -> error "Unsupported expression type"
 
 -- Helper func to generate subroutine that moves the value of a literal into type-specific register during expression eval
-literalEvalSr :: String -> Integer -> String -> String -> (String, String, Integer)
+literalEvalSr :: String -> Integer -> String -> VarType -> (String, String, Integer)
 literalEvalSr baseName index value valueType =
   let
     -- set sr name
@@ -57,7 +57,7 @@ literalEvalSr baseName index value valueType =
 
 
 -- Helper func to generate subroutnie that moves the value of a variable into rax during expression eval
-variableEvalSr :: String -> Integer -> String -> String -> (String, String, Integer)
+variableEvalSr :: String -> Integer -> String -> VarType -> (String, String, Integer)
 variableEvalSr baseName index varName varType =
   let
     -- set sr name
@@ -75,11 +75,11 @@ variableEvalSr baseName index varName varType =
 -- Helper func to generate subroutine that evaluates a unary operation recursively by chaining
 -- subroutine definitions for evaluating all subexpressions together. The output of the subexpression 
 -- is stored in the rax register the unary operation is applied.
-unaryOpEvalSr :: String -> Integer -> UnaryOp -> Expr -> (String, String, Integer)
-unaryOpEvalSr baseName index op subExpr =
+unaryOpEvalSr :: String -> Integer -> UnaryOp -> Expr-> TypeMap -> (String, String, Integer)
+unaryOpEvalSr baseName index op subExpr typeMap =
   let
       -- recursively evaluate the subexpression. NOTE that the index passed in is incremented
-      (subExprDef, subExprName, newIndex) = genExprEvalSr baseName (index + 1) subExpr 
+      (subExprDef, subExprName, newIndex) = genExprEvalSr baseName (index + 1) subExpr typeMap
 
       -- set unique subroutine name derived from base name, unary op, and index
       subroutineName = baseName ++  "_" ++ show index
@@ -100,13 +100,13 @@ unaryOpEvalSr baseName index op subExpr =
 -- generating a chain of subroutine definitions that will evaluate the left and right hand
 -- subexpressions in a depth first manner. The output of the left hand side expression is
 -- stored on the stack before evaluating the rhs. The final result is stored in the rax register.
-binaryOpEvalSr :: String -> Integer -> Op -> Expr -> Expr -> (String, String, Integer)
-binaryOpEvalSr baseName index op lhs rhs =
+binaryOpEvalSr :: String -> Integer -> Op -> Expr -> Expr -> TypeMap -> (String, String, Integer)
+binaryOpEvalSr baseName index op lhs rhs typeMap =
   let
 
       -- Generate subroutine definitions for evaluating LHS and RHS
-      (lhsExprEvalSrDef, lhsExprEvalSrName, lhsLastIndex) = genExprEvalSr (baseName ++ "_lhs_eval") (index) lhs
-      (rhsExprEvalSrDef, rhsExprEvalSrName, rhsLastIndex) = genExprEvalSr (baseName ++ "_rhs_eval") (lhsLastIndex) rhs
+      (lhsExprEvalSrDef, lhsExprEvalSrName, lhsLastIndex) = genExprEvalSr (baseName ++ "_lhs_eval") (index) lhs typeMap
+      (rhsExprEvalSrDef, rhsExprEvalSrName, rhsLastIndex) = genExprEvalSr (baseName ++ "_rhs_eval") (lhsLastIndex) rhs typeMap
 
       -- Unique subroutine name for the binary operation
       binaryOpSrName = baseName ++ "_" ++ show index
