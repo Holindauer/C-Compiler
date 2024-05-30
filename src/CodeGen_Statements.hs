@@ -17,7 +17,7 @@ import qualified Data.Map as Map
 
 -- Gameplan:
 -- I think the design implemented should be easily modified to accomodate for this. It will require that during
--- the generating of a subroutine chain for an expression eval, the type of the expr is passed along with the 
+-- the generation of a subroutine chain for an expression eval, the type of the expr is passed along with the 
 -- expr itself. Assuming correct syntax, pattern matching for the correct implementation of the handling of 
 -- float/double vs int/char types should be straightforward. As long as the entire chain is consistent and the 
 -- correct return register is known by the function calling the expr eval (in order to make the final assignment)
@@ -115,34 +115,29 @@ genBodyOfStmts baseName stmts =
 
 ------------------------------------------------------------------------------------------------- Asssignment Subroutine generation
 
--- genAssignmentSr generates a subroutine call and definitions for the assignment of and expression to a variable
--- that has been preinitialized within the .bss section. A further subroutine is generated and called within the
--- assignment subroutine for the evaluation of the expression prior to assignment. The expr eval is placed into the
--- rax register and then moved directly into the memory location of the variable.
+-- genAssignmentSr generates a subroutine call and definition for the assignment of an expression to a preinitialized
+-- variable (within the .bss section). Another subroutine def is generated for the eval of the expression. It is called 
+-- within the assignment subroutine. The output of the expr eval is placed into a different regeister depending on its 
+-- type. Then it is moved directly into the memory location of the variable.
 -- @param [name of subroutine], [index of stmt], [name of variable], [expression to be assigned]
 genAssignmentSr :: String -> Integer -> String -> Expr -> (String, String)
-genAssignmentSr assignSrName index lValue expr = case expr of 
+genAssignmentSr assignSrName index lValue expr = 
   let
-    -- gen expression eval subroutine
-    exprEvalSrBaseName = assignSrName ++ "_" ++ lValue ++ "_expr_eval_" ++ show index -- unique sr name
-    (exprEvalSrDef, exprEvalSrName, _) = genExprEvalSr exprEvalSrBaseName 0 expr
 
-    -- type specific move command
-    let moveCommand = case expr of
-          IntLit _ -> "\tmov [" ++ lValue ++ "_label], rax\n" 
-          FloatLit _ -> "\tmovss [" ++ lValue ++ "_label], xmm0\n"
-          DoubleLit _ -> "\tmovsd [" ++ lValue ++ "_label], xmm1\n"
-          CharLit _ -> "\tmov [" ++ lValue ++ "_label], rax\n" 
-          _ -> error "Unsupported expression type"
+    -- Generate expression evaluation subroutine
+    exprEvalSrBaseName = assignSrName ++ "_" ++ lValue ++ "_expr_eval_" ++ show index
+    (exprEvalSrDef, exprEvalSrName, _) = genExprEvalSr exprEvalSrBaseName 0 expr 
 
-    -- gen sr call and def for assignment of expression to variable
+    -- Type specific move command
+    moveCommand = moveOutputIntoVarInstr (getExprType expr) lValue
+
+    -- Generate subroutine call and def for assignment of expr to var
     assignSrCall = "\tcall " ++ assignSrName ++ "\n"
     assignmentSrDef = assignSrName ++ ":\n" ++
-                      "\tcall " ++ exprEvalSrName ++ "\n" ++      -- call expr eval sr, result in rax
-                      moveCommand ++                              -- move result into var mem
-                      "\tret\n"                                   -- Return from subroutine
+                      "\tcall " ++ exprEvalSrName ++ "\n" ++      -- Call expr eval subroutine, result in rax
+                      moveCommand ++ "\tret\n"                    -- Move result into var mem and return 
 
-    -- Combine the expr eval and assignment subroutine definitions together
+    -- Combine the expr eval and assignment subroutine definitions
     fullSrDef = assignmentSrDef ++ exprEvalSrDef
 
   in (assignSrCall, fullSrDef)
@@ -161,7 +156,7 @@ genConditionalSr baseName index condition thenBody elseBody =
     condSrName = baseName ++ "_" ++ show index                                            
     
     -- gen conditional eval subroutine   
-    evalCondSrBaseName = condSrName ++ "_eval_cond_" ++ show index                        
+    evalCondSrBaseName = condSrName ++ "_eval_cond_" ++ show index      
     (condEvalSrDef, condEvalSrName, _) = genExprEvalSr evalCondSrBaseName index condition 
 
     -- gen subroutine defs and calls for each statement in the then-body 

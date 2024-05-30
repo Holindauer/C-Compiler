@@ -4,30 +4,33 @@
 module CodeGen_Expressions where
 
 import AST
+import Helper
 import Data.List (foldl', zipWith)
 import Debug.Trace (traceShow, trace)
 
 -------------------------------------------------------------------------------------------------- Expression Evaluation Subroutine generation
 
--- genExprSr recursively chains subroutine definitions together for evaluating expressions in a depth first manner. 
--- Literal/Variable expressions are the base case. Unary/Binary expressions will result in recursively chaining of
--- subroutines to handle the evaluation of the subexpressions.
--- @param The base name of expression evaluation subroutine, the number of subroutines that have already been chained 
--- from the base to get to this one, and the current expr/subexpr.
+-- genExprSr recursively chains subroutine definitions together that evaluate each sub expression in the AST
+-- in a depth first manner. Literal/Variable expressions are the base case, resulting in the movement of their
+-- value into a temp register. Unary/Binary expressions are the recursive case, resulting in depth first chaining
+-- of operations.
+-- @param [subroutine base name], [num subroutines already in chain], [the expression], [the type of the expression] 
 genExprEvalSr :: String -> Integer -> Expr -> (String, String, Integer)
-genExprEvalSr baseName index expr = case expr of
+genExprEvalSr baseName index expr = case expr of 
 
   -- Base Cases: expr is a literal or variable
-  IntLit value ->
-    literalEvalSr baseName index value "Int"
+  IntLit value  ->
+    literalEvalSr baseName index (show value) (getExprType expr)
   FloatLit value ->
-    literalEvalSr baseName index value "Float"
+    literalEvalSr baseName index (show value) (getExprType expr)
   DoubleLit value ->
-    literalEvalSr baseName index value "Double"
+    literalEvalSr baseName index (show value) (getExprType expr)
   CharLit value ->
-    literalEvalSr baseName index value "Char"
-  Var varName -> 
-    variableEvalSr baseName index varName
+    literalEvalSr baseName index (show value) (getExprType expr)
+
+  -- Var case: move the value of the variable into a register
+  Var varName ->  
+    variableEvalSr baseName index varName (getExprType expr)
 
   -- Recursive Cases: expr is a unary or binary operation 
   UnaryOp op subExpr ->
@@ -37,34 +40,39 @@ genExprEvalSr baseName index expr = case expr of
     
   _ -> error "Unsupported expression type"
 
-
--- Helper func to generate subroutine that moves a literal value into rax during expressions eval 
-literalEvalSr :: String -> Integer -> Show a => a -> String -> (String, String, Integer)
-literalEvalSr baseName index value typeName =
+-- Helper func to generate subroutine that moves the value of a literal into type-specific register during expression eval
+literalEvalSr :: String -> Integer -> String -> String -> (String, String, Integer)
+literalEvalSr baseName index value valueType =
   let
-    -- set unique subroutine name
+    -- set sr name
     subroutineName = baseName ++ "_" ++ show index
+    
+    -- gen move instruction for literal into output register
+    moveInstruction = moveLitIntoOutRegInstr valueType value
 
-    -- set subroutine definition
-    subroutineDef = subroutineName ++ ":\n" ++
-                    "\tmov rax, " ++ show value ++ "\n" ++
-                    "\tret\n"
-  in (subroutineDef, subroutineName, index) -- return subroutine def, name, updated idx
+    -- assemble subroutine definition
+    subroutineDef = subroutineName ++ ":\n" ++ moveInstruction ++ "\tret\n"
+
+  in (subroutineDef, subroutineName, index)
 
 
 -- Helper func to generate subroutnie that moves the value of a variable into rax during expression eval
-variableEvalSr :: String -> Integer -> String -> (String, String, Integer)
-variableEvalSr baseName index varName =
+variableEvalSr :: String -> Integer -> String -> String -> (String, String, Integer)
+variableEvalSr baseName index varName varType =
   let
-      -- set unique subroutine name derived from base name, varName, and index
-      subroutineName = baseName ++ "_" ++ show index
+    -- set sr name
+    subroutineName = baseName ++ "_" ++ show index         
+    
+    -- gen move instruction for variable into output register
+    moveInstruction = moveOutputIntoVarInstr varType varName 
 
-      -- set subroutine definition 
-      subroutineDef = subroutineName ++ ":\n" ++                   -- subroutine label
-                      "\tmov rax, [" ++ varName ++ "_label]\n" ++  -- move value of varName into rax
-                      "\tret\n"                                    -- return from subroutine
+    -- assemble subroutine definition
+    subroutineDef = subroutineName ++ ":\n" ++ moveInstruction ++ "\tret\n"
 
-    in (subroutineDef, subroutineName, index) -- return the subroutine def, name, updated idx
+  in (subroutineDef, subroutineName, index)
+
+
+--     in (subroutineDef, subroutineName, index) -- return the subroutine def, name, updated idx
 
 -- Helper func to generate subroutine that evaluates a unary operation recursively by chaining
 -- subroutine definitions for evaluating all subexpressions together. The output of the subexpression 
@@ -73,7 +81,7 @@ unaryOpEvalSr :: String -> Integer -> UnaryOp -> Expr -> (String, String, Intege
 unaryOpEvalSr baseName index op subExpr =
   let
       -- recursively evaluate the subexpression. NOTE that the index passed in is incremented
-      (subExprDef, subExprName, newIndex) = genExprEvalSr baseName (index + 1) subExpr
+      (subExprDef, subExprName, newIndex) = genExprEvalSr baseName (index + 1) subExpr 
 
       -- set unique subroutine name derived from base name, unary op, and index
       subroutineName = baseName ++  "_" ++ show index
