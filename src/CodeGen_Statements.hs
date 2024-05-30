@@ -4,11 +4,12 @@ module CodeGen_Statements where
 
 import System.IO
 import AST
-import Helper
+import CodeGen_Helper
 import CodeGen_Expressions
 import Data.List (foldl', zipWith)
 import Debug.Trace (traceShow, trace)
 import qualified Data.Map as Map
+
 
 -- Issue:
 -- Currently, the code generator generates subroutines using the same register, rax, for storage and return 
@@ -35,18 +36,18 @@ import qualified Data.Map as Map
 -- @param the statement and its index wrt to the list of statements collected by the pasrer
 -- @dev There is also an optional baseName parameter that can be used to inject a unique prefix into the 
 -- subroutine name. An empty string should be passed into the prefix if no prefix is desired.
-generateStmtSr :: String -> Integer -> Stmt -> [(String, VarType)] -> (String, String)
-generateStmtSr optionalPrefix index stmt typeList = case stmt of
+generateStmtSr :: String -> Integer -> Stmt -> TypeMap -> (String, String)
+generateStmtSr optionalPrefix index stmt typeMap = case stmt of
 
   -- assignment stmt of preinitialized variable
   AssignStmt lValue expr -> 
     let assignSrName = optionalPrefix ++ lValue ++ "_assignment_" ++ show index
-    in (genAssignmentSr assignSrName index lValue expr typeList) 
+    in (genAssignmentSr assignSrName index lValue expr typeMap) 
 
   -- declaration assignment stmt
   DeclarationAssignment dataType lValue expr -> 
     let assignSrName = optionalPrefix ++ lValue ++ "_assignment_" ++ show index
-    in (genAssignmentSr assignSrName index lValue expr typeList)
+    in (genAssignmentSr assignSrName index lValue expr typeMap)
 
   -- simple declarations are ignored as they are handled in the .bss section
   SimpleDeclaration _ _ -> ("", "")
@@ -54,37 +55,37 @@ generateStmtSr optionalPrefix index stmt typeList = case stmt of
   -- conditional stmt
   IfStmt condition thenBody elseBody -> 
     let conditionSrName = optionalPrefix ++ "cond_stmt_" ++ show index
-    in (genConditionalSr conditionSrName index condition thenBody elseBody typeList)
+    in (genConditionalSr conditionSrName index condition thenBody elseBody typeMap)
 
   -- else stmt
   ElseStmt body -> 
     let elseSrName = optionalPrefix ++ "else_stmt_" ++ show index
-    in generateStmtSr elseSrName index (IfStmt (IntLit 1) body []) typeList
+    in generateStmtSr elseSrName index (IfStmt (IntLit 1) body []) typeMap
 
   -- increment stmt
   IncrementStmt varName -> 
     let incrementSrName = optionalPrefix ++ "increment_" ++ show index
-    in genIncrementSr incrementSrName index varName typeList
+    in genIncrementSr incrementSrName index varName typeMap
 
   -- decrement stmt
   DecrementStmt varName -> 
     let decrementSrName = optionalPrefix ++ "decrement_" ++ show index
-    in genDecrementSr decrementSrName index varName typeList
+    in genDecrementSr decrementSrName index varName typeMap
 
   -- for loop stmt
   ForStmt initStmt condition updateStmt body -> 
     let forLoopSrName = optionalPrefix ++ "for_loop_" ++ show index
-    in genForLoopSr forLoopSrName index initStmt condition updateStmt body typeList
+    in genForLoopSr forLoopSrName index initStmt condition updateStmt body typeMap
 
   -- while loop stmt
   WhileStmt condition body -> 
     let whileLoopSrName = optionalPrefix ++ "while_loop_" ++ show index
-    in genWhileLoopSr whileLoopSrName index condition body typeList
+    in genWhileLoopSr whileLoopSrName index condition body typeMap
 
   -- Return stmt
   ReturnStmt expr -> 
     let returnSrName = optionalPrefix ++ "return_stmt_" ++ show index
-    in genReturnStmtSr returnSrName index expr typeList
+    in genReturnStmtSr returnSrName index expr typeMap
 
   _ -> error "Unsupported statement type" 
 
@@ -93,12 +94,12 @@ generateStmtSr optionalPrefix index stmt typeList = case stmt of
 -- together into a subroutine that will execute them in order, and returns the name of this subroutine
 -- and all the aforementioned subroutine definitions concatenated together into a single string.
 -- NOTE: the baseName is assumed to already be a unique name as part of a larger subroutine (if or loop)
-genBodyOfStmts :: String -> [Stmt] -> [(String, VarType)] -> (String, String)
-genBodyOfStmts baseName stmts typeList = 
+genBodyOfStmts :: String -> [Stmt] -> TypeMap -> (String, String)
+genBodyOfStmts baseName stmts typeMap = 
   let
     -- gen [(call, def)] for each stmt
     stmtsIndexed = zipWith (\i stmt -> (baseName ++ "_" ++ show i, i, stmt)) [0..] stmts -- list of [(name, index, stmt)]
-    stmtsSrTuples = map (\stmt -> uncurry3 generateStmtSr stmt typeList) stmtsIndexed    -- pass (name, idx, stmt, typeList) into generateStmtSr                        
+    stmtsSrTuples = map (\stmt -> uncurry3 generateStmtSr stmt typeMap) stmtsIndexed    -- pass (name, idx, stmt, typeMap) into generateStmtSr                        
 
     -- concat subroutine calls and definitions into single strings respectively
     stmtsSrDefs = concatMap (\(call, def) -> def) stmtsSrTuples                             
@@ -120,8 +121,8 @@ genBodyOfStmts baseName stmts typeList =
 -- within the assignment subroutine. The output of the expr eval is placed into a different regeister depending on its 
 -- type. Then it is moved directly into the memory location of the variable.
 -- @param [name of subroutine], [index of stmt], [name of variable], [expression to be assigned]
-genAssignmentSr :: String -> Integer -> String -> Expr -> [(String, VarType)] -> (String, String)
-genAssignmentSr assignSrName index lValue expr typeList = 
+genAssignmentSr :: String -> Integer -> String -> Expr -> TypeMap -> (String, String)
+genAssignmentSr assignSrName index lValue expr typeMap = 
   let
     -- Generate expression evaluation subroutine
     exprEvalSrBaseName = assignSrName ++ "_" ++ lValue ++ "_expr_eval_" ++ show index
@@ -148,8 +149,8 @@ genAssignmentSr assignSrName index lValue expr typeList =
 -- generating a subroutine for the evaluation of the conditional expression, a subroutine for the sequential execution 
 -- of each statement within the then-body, and a subroutine that will call the conditional eval subroutine and, if the 
 -- result is true, call the then body execution subroutine.
-genConditionalSr :: String -> Integer -> Expr -> [Stmt] -> [Stmt] -> [(String, VarType)] -> (String, String)
-genConditionalSr baseName index condition thenBody elseBody typeList = 
+genConditionalSr :: String -> Integer -> Expr -> [Stmt] -> [Stmt] -> TypeMap -> (String, String)
+genConditionalSr baseName index condition thenBody elseBody typeMap = 
   let 
     -- subroutine name for the conditional statement 
     condSrName = baseName ++ "_" ++ show index                                            
@@ -159,10 +160,10 @@ genConditionalSr baseName index condition thenBody elseBody typeList =
     (condEvalSrDef, condEvalSrName, _) = genExprEvalSr evalCondSrBaseName index condition 
 
     -- gen subroutine defs and calls for each statement in the then-body 
-    (thenBodySrName, thenBodySrDef) = genBodyOfStmts (condSrName ++ "_then") thenBody typeList
+    (thenBodySrName, thenBodySrDef) = genBodyOfStmts (condSrName ++ "_then") thenBody typeMap
     
     -- gen optional else body execution sr def and name (will be empty if no else body)
-    (execElseBodySrName, execElseBodySrDef) = genOptionalElseBody baseName elseBody typeList
+    (execElseBodySrName, execElseBodySrDef) = genOptionalElseBody baseName elseBody typeMap
 
     -- gen sr def and call for calling the condition eval sr, executing then body if
     -- result in rax is true, or calling the else body if one exists and the result is false 
@@ -181,10 +182,10 @@ genConditionalSr baseName index condition thenBody elseBody typeList =
 
 -- genOptionalElseBody generates the subroutine definition and call for each statement in the 
 -- else body of a conditional statement. If there is no else body, it will return empty strings. 
-genOptionalElseBody :: String -> [Stmt] -> [(String, VarType)] -> (String, String)
-genOptionalElseBody baseName elseBody typeList
+genOptionalElseBody :: String -> [Stmt] -> TypeMap -> (String, String)
+genOptionalElseBody baseName elseBody typeMap
   | null elseBody = ("", "")                                       
-  | otherwise     = genBodyOfStmts (baseName ++ "_else") elseBody  typeList
+  | otherwise     = genBodyOfStmts (baseName ++ "_else") elseBody  typeMap
 
 -------------------------------------------------------------------------------------------------- For Loop Subroutine Generation
 
@@ -193,22 +194,22 @@ genOptionalElseBody baseName elseBody typeList
 -- loop termination condition, a subroutine for the sequential execution of each statement within the body of the loop,
 -- and a subroutine that will call the initialization statement, the condition eval subroutine, and if the result is true,
 -- call the update statement and the body execution subroutine.
-genForLoopSr :: String -> Integer -> Stmt -> Expr -> Stmt -> [Stmt] -> [(String, VarType)] -> (String, String)
-genForLoopSr baseName index initStmt condition updateStmt body typeList =
+genForLoopSr :: String -> Integer -> Stmt -> Expr -> Stmt -> [Stmt] -> TypeMap -> (String, String)
+genForLoopSr baseName index initStmt condition updateStmt body typeMap =
   let
     -- gen subroutine for loop counter init
     initStmtSrName = baseName ++ "_init_stmt_" ++ show index
-    (initStmtSrCall, initStmtSrDef) = generateStmtSr initStmtSrName index initStmt typeList
+    (initStmtSrCall, initStmtSrDef) = generateStmtSr initStmtSrName index initStmt typeMap
 
     -- gen subroutine for update statement
     updateStmtSrName = baseName ++ "_update_stmt_" ++ show index
-    (updateStmtSrCall, updateStmtSrDef) = generateStmtSr updateStmtSrName index updateStmt typeList
+    (updateStmtSrCall, updateStmtSrDef) = generateStmtSr updateStmtSrName index updateStmt typeMap
 
     -- gen subroutine for loop termination condition eval
     (conditionSrDef, conditionSrName, _) = genExprEvalSr baseName index condition
 
     -- gen subroutine for each stmt in the loop body 
-    (exectuteBodySrName, bodySrDef) = genBodyOfStmts (baseName ++ "_body") body typeList
+    (exectuteBodySrName, bodySrDef) = genBodyOfStmts (baseName ++ "_body") body typeMap
 
     -- gen subroutine to call the loop counter init, eval loop termination condition and if true call update statement and loop body, 
     forLoopSrName = baseName ++ "_looper_" ++ show index
@@ -240,15 +241,15 @@ genForLoopSr baseName index initStmt condition updateStmt body typeList =
 -- for the evaluation of the conditional expression, a subroutine for the sequential execution of each statement within
 -- the body of the while loop, and a subroutine that will call the conditional eval subroutine and, if the result is true,
 -- call the body execution subroutine.
-genWhileLoopSr :: String -> Integer -> Expr -> [Stmt] -> [(String, VarType)] -> (String, String) 
-genWhileLoopSr baseName index condition body typeList =
+genWhileLoopSr :: String -> Integer -> Expr -> [Stmt] -> TypeMap -> (String, String) 
+genWhileLoopSr baseName index condition body typeMap =
   let
     
     -- gen subroutine for termination condition expr
     (conditionSrDef, conditionSrName, _) = genExprEvalSr baseName 0 condition
 
     -- gen subroutine for the loop body 
-    (bodySrBaseName, bodySrDef) = genBodyOfStmts (baseName ++ "_body") body typeList
+    (bodySrBaseName, bodySrDef) = genBodyOfStmts (baseName ++ "_body") body typeMap
 
     -- generate subroutine for while loop  
     whileLoopSrName = baseName ++ "_looper_" ++ show index
@@ -275,8 +276,8 @@ genWhileLoopSr baseName index condition body typeList =
 -------------------------------------------------------------------------------------------------- Increment/Decrement Subroutine Generation
 
 -- Generates subroutine definition and call for incrementing a variable
-genIncrementSr :: String -> Integer -> String -> [(String, VarType)] -> (String, String)
-genIncrementSr baseName index varName typeList = 
+genIncrementSr :: String -> Integer -> String -> TypeMap -> (String, String)
+genIncrementSr baseName index varName typeMap = 
   let
     -- unique subroutine names
     incrementSrName = baseName ++ show index
@@ -290,8 +291,8 @@ genIncrementSr baseName index varName typeList =
 
 
 -- Generates subroutine defintion and call for decrementing a variable
-genDecrementSr :: String -> Integer -> String -> [(String, VarType)] -> (String, String)
-genDecrementSr baseName index varName typeList = 
+genDecrementSr :: String -> Integer -> String -> TypeMap -> (String, String)
+genDecrementSr baseName index varName typeMap = 
   let
     -- unique subroutine names
     decrementSrName = baseName ++ show index
@@ -310,8 +311,8 @@ genDecrementSr baseName index varName typeList =
 -- the program with a syscall to exit with the value being return set as the exit code. In the 
 -- future, when user defined functions are added, the return statement must differentiate between
 -- the program exit and a function return.
-genReturnStmtSr :: String -> Integer -> Expr -> [(String, VarType)] -> (String, String)
-genReturnStmtSr baseName index expr typeList = 
+genReturnStmtSr :: String -> Integer -> Expr -> TypeMap -> (String, String)
+genReturnStmtSr baseName index expr typeMap = 
   let
     -- gen subroutine for expression evaluation
     (exprEvalSrDef, exprEvalSrName, _) = genExprEvalSr baseName index expr

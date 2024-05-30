@@ -4,7 +4,7 @@
 module CodeGen_Expressions where
 
 import AST
-import Helper
+import CodeGen_Helper
 import Data.List (foldl', zipWith)
 import Debug.Trace (traceShow, trace)
 

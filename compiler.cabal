@@ -27,9 +27,9 @@ library
   exposed-modules:
       AST
       CodeGen_Expressions
+      CodeGen_Helper
       CodeGen_Main
       CodeGen_Statements
-      Helper
       Lexer
       Parser_Expressions
       Parser_Helper
@@ -45,7 +45,9 @@ library
   build-depends:
       base >=4.7 && <5
     , containers
+    , hashable
     , hspec
+    , unordered-containers
   default-language: Haskell2010
 
 executable compiler-exe
@@ -61,7 +63,9 @@ executable compiler-exe
       base >=4.7 && <5
     , compiler
     , containers
+    , hashable
     , hspec
+    , unordered-containers
   default-language: Haskell2010
 
 test-suite compiler-test
@@ -91,5 +95,7 @@ test-suite compiler-test
       base
     , compiler
     , containers
+    , hashable
     , hspec
+    , unordered-containers
   default-language: Haskell2010

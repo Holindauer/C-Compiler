@@ -7,10 +7,12 @@ import System.IO
 import AST
 import CodeGen_Statements
 import CodeGen_Expressions
-import Helper
+import CodeGen_Helper
 import Data.List (foldl', zipWith)
 import Debug.Trace (traceShow, trace)
 import qualified Data.Map as Map
+import qualified Data.HashMap.Strict as HashMap
+
 
 -- Code Generator Design Summary:
 --
@@ -45,12 +47,12 @@ generateCode :: Program -> String
 generateCode program =
   let
 
-    -- get list of each variables type in the program
-    typeList = getTypeList program
+    -- get map of each variables type in the program
+    typeMap = getTypeMap program
 
     -- generate .bss and .text 
     bssSection = generateBssSection program
-    textTuples = generateTextSection program typeList
+    textTuples = generateTextSection program typeMap
 
     -- concat defs and calls of .text section into single strings respectively
     textSrDefs = concatMap (\(call, def) -> def) textTuples 
@@ -72,6 +74,32 @@ generateCode program =
 -- Writes the assembly code to a file
 writeToFile :: FilePath -> String -> IO ()
 writeToFile path content = writeFile path content
+
+-------------------------------------------------------------------------------------------------- Type List
+
+-- getTypeList perfroms a left fold over the parsed program, collecting a list  
+-- of (varName, type) tuples for each declaration statement within the program
+getTypeMap :: [Stmt] -> TypeMap
+getTypeMap stmts = makeTypeMap stmts
+  where
+    -- performs left fold w/ getType into empty list of (varName, type) tups, then converts to HashMap
+    makeTypeMap :: [Stmt] -> TypeMap
+    makeTypeMap program = HashMap.fromList (foldl' getType [] program)
+
+    -- accumulates a list of (varName, type) tuples for each declaration statement
+    getType :: [(String, VarType)] -> Stmt -> [(String, VarType)]
+    getType acc (SimpleDeclaration dataType (Var varName)) = (varName, determineVarType dataType) : acc
+    getType acc (DeclarationAssignment dataType varName _) = (varName, determineVarType dataType) : acc
+    getType acc _ = acc
+
+    -- determineVarType converts a string data type to a VarType
+    determineVarType :: String -> VarType
+    determineVarType dataType = case dataType of
+      "int" -> IntType
+      "float" -> FloatType
+      "double" -> DoubleType
+      "char" -> CharType
+      _ -> error "Unsupported data type"
 
 -------------------------------------------------------------------------------------------------- .bss section generation
 
@@ -128,24 +156,6 @@ generateBssSection stmts = foldl' generateBssText "" stmts -- left fold over stm
     processComplexStmt :: String -> [Stmt] -> String
     processComplexStmt bssAccumulator stmts = foldl' generateBssText bssAccumulator stmts
 
--- getTypeList perfroms a left fold over the parsed program, collecting a list  
--- of (varName, type) tuples for each declaration statement within the program
-getTypeList :: [Stmt] -> [(String, VarType)] -- ! TODO replace with hashmap?
-getTypeList stmts = foldl' getType [] stmts
-  where
-    getType :: [(String, VarType)] -> Stmt -> [(String, VarType)]
-    getType acc (SimpleDeclaration dataType (Var varName)) = (varName, determineVarType dataType) : acc
-    getType acc (DeclarationAssignment dataType varName _) = (varName, determineVarType dataType) : acc
-    getType acc _ = acc
-
-    determineVarType :: String -> VarType
-    determineVarType dataType = case dataType of
-      "int" -> IntType
-      "float" -> FloatType
-      "double" -> DoubleType
-      "char" -> CharType
-      _ -> error "Unsupported data type"
-
 -- Helper function for generating the size of a data type in NASM assembly syntax
 dataTypeToSize :: String -> String
 dataTypeToSize dataType = case dataType of
@@ -155,15 +165,12 @@ dataTypeToSize dataType = case dataType of
   "char" -> "resb 1"   -- 1 char (1 byte)
   _ -> error "Unsupported data type"
 
-
 -------------------------------------------------------------------------------------------------- .text section generation
 
 -- generateTextSection returns a list of tuples containing subroutine calls and their definitions
-generateTextSection :: [Stmt] -> [(String, VarType)] -> [(String, String)]
-generateTextSection stmts typeList = map (\stmt -> uncurry3 generateStmtSr stmt typeList) indexedStmts
+generateTextSection :: [Stmt] -> TypeMap -> [(String, String)]
+generateTextSection stmts typeMap = map (\stmt -> uncurry3 generateStmtSr stmt typeMap) indexedStmts
   where
     -- Creates list of empty strings the same length as stmts
     emptyStrings = replicate (length stmts) ""
-  
-    -- zip3 pairs each stmt with its index and an empty string prefix to create unique subroutine names
-    indexedStmts = zip3 emptyStrings [0..] stmts 
+    indexedStmts = zip3 emptyStrings [0..] stmts   -- ("", i, stmt)
