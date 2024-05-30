@@ -7,6 +7,10 @@ module AST where
 -- A stmt is a type that contains the gramatical structure of the statement, including all nested 
 -- statements and expressions. 
 
+-- Type 
+data VarType = IntType | FloatType | DoubleType | CharType | VoidType
+  deriving (Eq, Show) 
+
 -- Binary operators
 data Op = Add | Subtract | Multiply | Divide | Modulus
         | LessThan | GreaterThan | LessEq | GreaterEq | Equal | NotEqual
@@ -24,7 +28,7 @@ data Expr
   | FloatLit Float
   | DoubleLit Double
   | CharLit Char  
-  | Var String
+  | Var String  
   | BinOp Op Expr Expr
   | UnaryOp UnaryOp Expr
   deriving (Eq, Show)

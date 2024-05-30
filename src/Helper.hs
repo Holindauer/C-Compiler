@@ -37,6 +37,7 @@ getExprType expr = case expr of  -- ! Currently Placeholder
   CharLit _ -> "Char"
 
   -- variables TODO implement
+  
 
 
   _ -> error "Unsupported expression type"

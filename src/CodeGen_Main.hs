@@ -44,9 +44,13 @@ import qualified Data.Map as Map
 generateCode :: Program -> String
 generateCode program =
   let
+
+    -- get list of each variables type in the program
+    typeList = getTypeList program
+
     -- generate .bss and .text 
     bssSection = generateBssSection program
-    textTuples = generateTextSection program 
+    textTuples = generateTextSection program typeList
 
     -- concat defs and calls of .text section into single strings respectively
     textSrDefs = concatMap (\(call, def) -> def) textTuples 
@@ -124,6 +128,24 @@ generateBssSection stmts = foldl' generateBssText "" stmts -- left fold over stm
     processComplexStmt :: String -> [Stmt] -> String
     processComplexStmt bssAccumulator stmts = foldl' generateBssText bssAccumulator stmts
 
+-- getTypeList perfroms a left fold over the parsed program, collecting a list  
+-- of (varName, type) tuples for each declaration statement within the program
+getTypeList :: [Stmt] -> [(String, VarType)] -- ! TODO replace with hashmap?
+getTypeList stmts = foldl' getType [] stmts
+  where
+    getType :: [(String, VarType)] -> Stmt -> [(String, VarType)]
+    getType acc (SimpleDeclaration dataType (Var varName)) = (varName, determineVarType dataType) : acc
+    getType acc (DeclarationAssignment dataType varName _) = (varName, determineVarType dataType) : acc
+    getType acc _ = acc
+
+    determineVarType :: String -> VarType
+    determineVarType dataType = case dataType of
+      "int" -> IntType
+      "float" -> FloatType
+      "double" -> DoubleType
+      "char" -> CharType
+      _ -> error "Unsupported data type"
+
 -- Helper function for generating the size of a data type in NASM assembly syntax
 dataTypeToSize :: String -> String
 dataTypeToSize dataType = case dataType of
@@ -137,8 +159,8 @@ dataTypeToSize dataType = case dataType of
 -------------------------------------------------------------------------------------------------- .text section generation
 
 -- generateTextSection returns a list of tuples containing subroutine calls and their definitions
-generateTextSection :: [Stmt] -> [(String, String)]
-generateTextSection stmts = map (uncurry3 generateStmtSr) indexedStmts
+generateTextSection :: [Stmt] -> [(String, VarType)] -> [(String, String)]
+generateTextSection stmts typeList = map (\stmt -> uncurry3 generateStmtSr stmt typeList) indexedStmts
   where
     -- Creates list of empty strings the same length as stmts
     emptyStrings = replicate (length stmts) ""

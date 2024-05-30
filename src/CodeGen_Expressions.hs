@@ -72,8 +72,6 @@ variableEvalSr baseName index varName varType =
   in (subroutineDef, subroutineName, index)
 
 
---     in (subroutineDef, subroutineName, index) -- return the subroutine def, name, updated idx
-
 -- Helper func to generate subroutine that evaluates a unary operation recursively by chaining
 -- subroutine definitions for evaluating all subexpressions together. The output of the subexpression 
 -- is stored in the rax register the unary operation is applied.
