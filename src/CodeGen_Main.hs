@@ -50,9 +50,13 @@ generateCode program =
     -- get map of each variables type in the program
     typeMap = getTypeMap program
 
-    -- generate .bss and .text 
+    -- generate .data, .bss, and .text sections
     bssSection = generateBssSection program
     textTuples = generateTextSection program typeMap
+    dataSection = genDataSection
+
+    -- get helper subroutines
+    helperSubroutines = helperSubroutines
 
     -- concat defs and calls of .text section into single strings respectively
     textSrDefs = concatMap (\(call, def) -> def) textTuples 
@@ -69,11 +73,47 @@ generateCode program =
       -- exit program w/ syscall 60, exist status 0
 	    "\tmov rax, 60 \n" ++ "\txor rdi, rdi\n" ++ "\tsyscall\n" 
   in
-    "section .bss\n" ++ bssSection ++ "\n" ++ startSection ++ "\n" ++ textSrDefs
+    dataSection ++ "\n" ++ 
+    "section .bss\n" ++ bssSection ++ "\n" ++ 
+    helperSubroutines ++ "\n" 
+    ++ startSection ++ "\n" ++ textSrDefs
 
 -- Writes the assembly code to a file
 writeToFile :: FilePath -> String -> IO ()
 writeToFile path content = writeFile path content
+
+-------------------------------------------------------------------------------------------------- .data Section
+
+genDataSection :: String 
+genDataSection = unlines
+  ["section .data\n",
+  "\tone_float dd 1.0\n",
+  "\tone_double dq 1.0\n"
+  ]
+
+
+-------------------------------------------------------------------------------------------------- Helper Subroutine Definitions
+
+-- subroutines that are relied upon by various parts of the code generator
+helperSubroutines :: String
+helperSubroutines = unlines 
+  ["increment_float:\n", -- increments a float already in xmm0
+  "\taddss xmm0, dword [one_float]\n",
+  "\tret\n",
+
+  "increment_double:\n", -- increments a double already in xmm1
+  "\taddsd xmm1, qword [one_double]\n",
+  "\tret\n",
+
+  "decrement_float:\n", -- decrements a float already in xmm0
+  "\tsubss xmm0, dword [one_float]\n",
+  "\tret\n",
+
+  "decrement_double:\n", -- decrements a double already in xmm1
+  "\tsubsd xmm1, qword [one_double]\n",
+  "\tret\n"
+
+  ]
 
 -------------------------------------------------------------------------------------------------- Type List
 

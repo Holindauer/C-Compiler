@@ -44,10 +44,10 @@ genExprEvalSr baseName index expr typeMap = case expr of
 literalEvalSr :: String -> Integer -> String -> VarType -> (String, String, Integer)
 literalEvalSr baseName index value valueType =
   let
-    -- set sr name
+    -- sr name
     subroutineName = baseName ++ "_" ++ show index
     
-    -- gen move instruction for literal into output register
+    -- gen move instruction for literal into type specific output register
     moveInstruction = moveLitIntoOutRegInstr valueType value
 
     -- assemble subroutine definition
@@ -60,10 +60,10 @@ literalEvalSr baseName index value valueType =
 variableEvalSr :: String -> Integer -> String -> VarType -> (String, String, Integer)
 variableEvalSr baseName index varName varType =
   let
-    -- set sr name
+    -- sr name
     subroutineName = baseName ++ "_" ++ show index         
     
-    -- gen move instruction for variable into output register
+    -- gen move instruction for variable into type specific output register
     moveInstruction = moveOutputIntoVarInstr varType varName 
 
     -- assemble subroutine definition
@@ -85,10 +85,10 @@ unaryOpEvalSr baseName index op subExpr typeMap =
       subroutineName = baseName ++  "_" ++ show index
 
       -- set subroutine definition 
-      subroutineDef = subroutineName ++ ":\n" ++           -- subroutine label
-                      "\tcall " ++ subExprName ++ "\n" ++  -- call the subexpression eval subroutine
-                      unaryOpAsm op ++                     -- use unaryOpAsm to generate instructions for specific op
-                      "\tret\n"                            -- return from subroutine
+      subroutineDef = subroutineName ++ ":\n" ++                       -- subroutine label
+                      "\tcall " ++ subExprName ++ "\n" ++              -- call the subexpression eval subroutine
+                      unaryOpAsm op (getExprType subExpr typeMap) ++   -- use unaryOpAsm to generate instructions for specific op
+                      "\tret\n"                                        -- return from subroutine
 
       -- append the subExprDef to the subroutine definition
       fullSubroutineDef = subroutineDef ++ subExprDef
@@ -137,13 +137,35 @@ binaryOpEvalSr baseName index op lhs rhs typeMap =
 -- unaryOpAsm is a helper function called within genExprEvalSr that generates the 
 -- NASM assembly code for a specific unary operation based on the provided unary op.
 -- It is assumed that the value for which the operation is being applied is already
--- within the rax register.
-unaryOpAsm :: UnaryOp -> String
-unaryOpAsm op = case op of
-  Neg -> "\tneg rax\n"
-  LogicalNot -> "\tnot rax\n"
-  Increment -> "\tinc rax\n"
-  Decrement -> "\tdec rax\n"
+-- within the rax/xmm0/xmm1 register.
+unaryOpAsm :: UnaryOp -> VarType -> String
+unaryOpAsm op exprType = case op of
+
+  Neg -> case exprType of
+    IntType -> "\tneg rax\n"
+    CharType -> "\tneg rax\n"
+    FloatType -> "\tnegss xmm0, xmm0\n"
+    DoubleType -> "\tnegsd xmm1, xmm1\n"
+    
+  LogicalNot -> case exprType of 
+    IntType -> "\tnot rax\n"
+    CharType -> "\tnot rax\n"
+    -- FloatType -> ""  -- determine what to do about these? boolean expressions arent only implemented in the context of
+    -- DoubleType -> "" -- conditionals so this might require extra infrastructure.
+    _ -> error "Operation not supported"
+
+  Increment -> case exprType of 
+    IntType -> "\tinc rax\n"
+    CharType -> "\tinc rax\n"
+    FloatType -> "\tcall increment_float\n" -- helper sr defined in CodeGen_Main.hs
+    DoubleType -> "\tcall increment_double\n" -- helper sr defined in CodeGen_Main.hs
+
+  Decrement -> case exprType of
+    IntType -> "\tdec rax\n"
+    CharType -> "\tdec rax\n"
+    FloatType -> "\tcall decrement_float\n" -- helper sr defined in CodeGen_Main.hs
+    DoubleType -> "\tcall decrement_double\n" -- helper sr defined in CodeGen_Main.hs
+
   _ -> error "Operation not supported"
 
 -- binaryOpAsm is a helper function called within genExprEvalSr that generates the
