@@ -19,19 +19,29 @@ type TypeMap = HashMap String DataType
 -- getTypeMap takes a list of statements and for each declaration statement, it returns 
 -- a hashmap of variable names, their data types, and a list of each declaration stmt.
 getTypeMap :: [Stmt] -> (TypeMap, [Stmt])
-getTypeMap stmts = (makeTypeMap declarationStmts, declarationStmts)
+getTypeMap stmts = (makeTypeMap allDeclarationStmts, allDeclarationStmts)
   where
-    -- Filter declaration statements and create hashmap
-    declarationStmts = filter isDecl stmts
-    makeTypeMap = HashMap.fromList . foldl' getType []
+    allDeclarationStmts = concatMap collectDeclarations stmts -- collect delcarations 
+    makeTypeMap = HashMap.fromList . foldl' getType []        -- make type hash map
 
-    -- Determine if a statement is a declaration stmt
-    isDecl :: Stmt -> Bool
-    isDecl (SimpleDeclaration _ _) = True
-    isDecl (DeclarationAssignment _ _ _) = True
-    isDecl _ = False
+    -- collects all nested declarations within a statement
+    collectDeclarations :: Stmt -> [Stmt]
 
-    -- Accumulates list of (varName, type) tuples for each declaration statement
+    -- declarations (base case)
+    collectDeclarations stmt@(SimpleDeclaration _ _) = [stmt] 
+    collectDeclarations stmt@(DeclarationAssignment _ _ _) = [stmt]
+
+    -- statements w/ stmt bodies (recursive case) 
+    collectDeclarations (ForStmt initStmt _ _ body) =
+      collectDeclarations initStmt ++ concatMap collectDeclarations body
+    collectDeclarations (WhileStmt _ body) =
+      concatMap collectDeclarations body
+    collectDeclarations (IfStmt _ thenBody elseBody) =
+      concatMap collectDeclarations thenBody ++ concatMap collectDeclarations elseBody
+
+    collectDeclarations _ = []
+
+    -- Takes a declaration statment and gets the var name and data type 
     getType :: [(String, DataType)] -> Stmt -> [(String, DataType)]
     getType acc (SimpleDeclaration dataType (Var varName)) =
       (varName, determineDataType dataType) : acc
@@ -39,7 +49,7 @@ getTypeMap stmts = (makeTypeMap declarationStmts, declarationStmts)
       (varName, determineDataType dataType) : acc
     getType acc _ = acc
 
-    -- Convert a string data type to a DataType
+    -- converts string data type to DataType
     determineDataType :: String -> DataType
     determineDataType dataType = case dataType of
       "int" -> IntType
