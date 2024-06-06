@@ -103,7 +103,6 @@ unaryOpEvalSr baseName index op subExpr typeMap =
 binaryOpEvalSr :: String -> Integer -> Op -> Expr -> Expr -> TypeMap -> (String, String, Integer)
 binaryOpEvalSr baseName index op lhs rhs typeMap =
   let
-
       -- Generate subroutine definitions for evaluating LHS and RHS
       (lhsExprEvalSrDef, lhsExprEvalSrName, lhsLastIndex) = genExprEvalSr (baseName ++ "_lhs_eval") (index) lhs typeMap
       (rhsExprEvalSrDef, rhsExprEvalSrName, rhsLastIndex) = genExprEvalSr (baseName ++ "_rhs_eval") (lhsLastIndex) rhs typeMap
@@ -124,7 +123,7 @@ binaryOpEvalSr baseName index op lhs rhs typeMap =
           "\tpop rax\n" ++  -- Retrieve LHS result from stack to rax
 
           -- generate the binary operation instructions using binaryOpAsm
-          binaryOpAsm op ++ 
+          binaryOpAsm op (getExprType lhs typeMap) ++ 
           "\tret\n"
 
       -- Combine the subroutine definitions with the binary operation code
@@ -172,25 +171,90 @@ unaryOpAsm op exprType = case op of
 -- NASM assembly code for a specific binary operation based on the provided binary op.s
 -- It is assumed that the values for which the operation is being applied are already
 -- within the rax and rbx registers. Commutativity does not apply to this setup.
-binaryOpAsm :: Op -> String
-binaryOpAsm op = case op of
+binaryOpAsm :: Op -> VarType -> String
+binaryOpAsm op exprType = case op of
 
-  -- Arithmetic operations
-  Add -> "\tadd rax, rbx\n"
-  Subtract -> "\tsub rax, rbx\n"
-  Multiply -> "\timul rax, rbx\n"
-  Divide -> "\tcqo\n" ++ "\tidiv rbx\n"  -- Sign-extend rax into rdx:rax before division
+  -- Add
+  Add -> case exprType of
+    IntType -> "\tadd rax, rbx\n"
+    CharType -> "\tadd rax, rbx\n"
+    FloatType -> "\taddss xmm0, xmm1\n"
+    DoubleType -> "\taddsd xmm0, xmm1\n"
 
-  -- Comparison operations
-  LessThan -> "\tcmp rax, rbx\n" ++ "\tsetl al\n" ++ "\tmovzx rax, al\n"
-  GreaterThan -> "\tcmp rax, rbx\n" ++ "\tsetg al\n" ++ "\tmovzx rax, al\n"
-  LessEq -> "\tcmp rax, rbx\n" ++ "\tsetle al\n" ++ "\tmovzx rax, al\n"
-  GreaterEq -> "\tcmp rax, rbx\n" ++ "\tsetge al\n" ++ "\tmovzx rax, al\n"
-  Equal -> "\tcmp rax, rbx\n" ++ "\tsete al\n" ++ "\tmovzx rax, al\n"
-  NotEqual -> "\tcmp rax, rbx\n" ++ "\tsetne al\n" ++ "\tmovzx rax, al\n"
+  --Subtract
+  Subtract -> case exprType of
+    IntType -> "\tsub rax, rbx\n"
+    CharType -> "\tsub rax, rbx\n"
+    FloatType -> "\tsubss xmm0, xmm1\n"
+    DoubleType -> "\tsubsd xmm0, xmm1\n"
+
+  -- Multiply
+  Multiply -> case exprType of
+    IntType -> "\timul rax, rbx\n"
+    CharType -> "\timul rax, rbx\n"
+    FloatType -> "\tmulss xmm0, xmm1\n"
+    DoubleType -> "\tmulsd xmm0, xmm1\n"
+
+  -- Divide
+  Divide -> case exprType of   -- ! This may need to be updated slightly according to division rules
+    IntType -> "\tcqo\n" ++ "\tidiv rbx\n"  -- Sign-extend rax into rdx:rax before division
+    CharType -> "\tcqo\n" ++ "\tidiv rbx\n"
+    FloatType -> "\tdivss xmm0, xmm1\n"
+    DoubleType -> "\tdivsd xmm0, xmm1\n"
+    
+  -- Less Than
+  LessThan -> case exprType of 
+    IntType -> "\tcmp rax, rbx\n" ++ "\tsetl al\n" ++ "\tmovzx rax, al\n"
+    CharType -> "\tcmp rax, rbx\n" ++ "\tsetl al\n" ++ "\tmovzx rax, al\n"
+    FloatType -> "\tcomiss xmm0, xmm1\n" ++ "\tsetb al\n" ++ "\tmovzx rax, al\n"
+    DoubleType -> "\tcomisd xmm0, xmm1\n" ++ "\tsetb al\n" ++ "\tmovzx rax, al\n"
+
+  -- Greater Than
+  GreaterThan -> case exprType of
+    IntType -> "\tcmp rax, rbx\n" ++ "\tsetg al\n" ++ "\tmovzx rax, al\n"
+    CharType -> "\tcmp rax, rbx\n" ++ "\tsetg al\n" ++ "\tmovzx rax, al\n"
+    FloatType -> "\tcomiss xmm0, xmm1\n" ++ "\tseta al\n" ++ "\tmovzx rax, al\n"
+    DoubleType -> "\tcomisd xmm0, xmm1\n" ++ "\tseta al\n" ++ "\tmovzx rax, al\n"
+
+  -- Less Than or Equal To
+  LessEq -> case exprType of
+    IntType -> "\tcmp rax, rbx\n" ++ "\tsetle al\n" ++ "\tmovzx rax, al\n"
+    CharType -> "\tcmp rax, rbx\n" ++ "\tsetle al\n" ++ "\tmovzx rax, al\n"
+    FloatType -> "\tcomiss xmm0, xmm1\n" ++ "\tsetbe al\n" ++ "\tmovzx rax, al\n"
+    DoubleType -> "\tcomisd xmm0, xmm1\n" ++ "\tsetbe al\n" ++ "\tmovzx rax, al\n"
+
+  -- Greater Than or Equal To
+  GreaterEq -> case exprType of
+    IntType -> "\tcmp rax, rbx\n" ++ "\tsetge al\n" ++ "\tmovzx rax, al\n"
+    CharType -> "\tcmp rax, rbx\n" ++ "\tsetge al\n" ++ "\tmovzx rax, al\n"
+    FloatType -> "\tcomiss xmm0, xmm1\n" ++ "\tsetae al\n" ++ "\tmovzx rax, al\n"
+    DoubleType -> "\tcomisd xmm0, xmm1\n" ++ "\tsetae al\n" ++ "\tmovzx rax, al\n"
+
+  -- Equal to 
+  Equal -> case exprType of
+    IntType -> "\tcmp rax, rbx\n" ++ "\tsete al\n" ++ "\tmovzx rax, al\n"
+    CharType -> "\tcmp rax, rbx\n" ++ "\tsete al\n" ++ "\tmovzx rax, al\n"
+    FloatType -> "\tcomiss xmm0, xmm1\n" ++ "\tsete al\n" ++ "\tmovzx rax, al\n"
+    DoubleType -> "\tcomisd xmm0, xmm1\n" ++ "\tsete al\n" ++ "\tmovzx rax, al\n"
+
+  -- Not Equal to 
+  NotEqual -> case exprType of
+    IntType -> "\tcmp rax, rbx\n" ++ "\tsetne al\n" ++ "\tmovzx rax, al\n"
+    CharType -> "\tcmp rax, rbx\n" ++ "\tsetne al\n" ++ "\tmovzx rax, al\n"
+    FloatType -> "\tcomiss xmm0, xmm1\n" ++ "\tsetnp al\n" ++ "\tmovzx rax, al\n"
+    DoubleType -> "\tcomisd xmm0, xmm1\n" ++ "\tsetnp al\n" ++ "\tmovzx rax, al\n"
 
   -- Logical operations
-  And -> "\tand rax, rbx\n" ++ "\ttest rax, rax\n" ++ "\tsetnz al\n" ++ "\tmovzx rax, al\n"
-  Or -> "\tor rax, rbx\n" ++ "\ttest rax, rax\n" ++ "\tsetnz al\n" ++ "\tmovzx rax, al\n"
+  And -> case exprType of 
+    IntType -> "\tand rax, rbx\n" ++ "\ttest rax, rax\n" ++ "\tsetnz al\n" ++ "\tmovzx rax, al\n"
+    CharType -> "\tand rax, rbx\n" ++ "\ttest rax, rax\n" ++ "\tsetnz al\n" ++ "\tmovzx rax, al\n"
+    FloatType -> ""
+    DoubleType -> ""
+
+  Or -> case exprType of 
+    IntType -> "\tor rax, rbx\n" ++ "\ttest rax, rax\n" ++ "\tsetnz al\n" ++ "\tmovzx rax, al\n"
+    CharType -> "\tor rax, rbx\n" ++ "\ttest rax, rax\n" ++ "\tsetnz al\n" ++ "\tmovzx rax, al\n"
+    FloatType -> ""
+    DoubleType -> ""
 
   _ -> error "Operation not supported"

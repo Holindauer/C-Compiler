@@ -50,13 +50,15 @@ generateCode program =
     -- get map of each variables type in the program
     typeMap = getTypeMap program
 
-    -- generate .data, .bss, and .text sections
+    -- get .bss and .data sections
     bssSection = generateBssSection program
-    textTuples = generateTextSection program typeMap
-    dataSection = genDataSection
+    dataSection = genDataSection ++ "\n"
 
     -- get helper subroutines
-    helperSubroutines = helperSubroutines
+    helpers = helperSubroutines ++ "\n"
+
+    -- get .text section
+    textTuples = generateTextSection program typeMap
 
     -- concat defs and calls of .text section into single strings respectively
     textSrDefs = concatMap (\(call, def) -> def) textTuples 
@@ -68,15 +70,12 @@ generateCode program =
       "global _start\n" ++ "section .text\n\n" ++ 
       
       -- _start def w/ calls to all subroutines
-      "_start:\n" ++ textSrCalls ++
+      "_start:\n" ++ textSrCalls 
 
-      -- exit program w/ syscall 60, exist status 0
-	    "\tmov rax, 60 \n" ++ "\txor rdi, rdi\n" ++ "\tsyscall\n" 
-  in
-    dataSection ++ "\n" ++ 
+   in
+    dataSection ++
     "section .bss\n" ++ bssSection ++ "\n" ++ 
-    helperSubroutines ++ "\n" 
-    ++ startSection ++ "\n" ++ textSrDefs
+    startSection ++ "\n" ++ textSrDefs ++ "\n" ++ helpers 
 
 -- Writes the assembly code to a file
 writeToFile :: FilePath -> String -> IO ()
@@ -112,7 +111,6 @@ helperSubroutines = unlines
   "decrement_double:\n", -- decrements a double already in xmm1
   "\tsubsd xmm1, qword [one_double]\n",
   "\tret\n"
-
   ]
 
 -------------------------------------------------------------------------------------------------- Type List
