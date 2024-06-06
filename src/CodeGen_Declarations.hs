@@ -16,22 +16,30 @@ data DataType = IntType | FloatType | DoubleType | CharType | VoidType
 -- type alias for a hashmap of variable names and their types
 type TypeMap = HashMap String DataType
 
--- getTypeList perfroms a left fold over the parsed program, collecting a list  
--- of (varName, type) tuples for each declaration statement within the program
-getTypeMap :: [Stmt] -> TypeMap
-getTypeMap stmts = makeTypeMap stmts
+-- getTypeMap takes a list of statements and for each declaration statement, it returns 
+-- a hashmap of variable names, their data types, and a list of each declaration stmt.
+getTypeMap :: [Stmt] -> (TypeMap, [Stmt])
+getTypeMap stmts = (makeTypeMap declarationStmts, declarationStmts)
   where
-    -- get list of all types in prgm and convert to hashmap
-    makeTypeMap :: [Stmt] -> TypeMap
-    makeTypeMap program = HashMap.fromList (foldl' getType [] program)
+    -- Filter declaration statements and create hashmap
+    declarationStmts = filter isDecl stmts
+    makeTypeMap = HashMap.fromList . foldl' getType []
 
-    -- accumulates a list of (varName, type) tuples for each declaration statement
+    -- Determine if a statement is a declaration stmt
+    isDecl :: Stmt -> Bool
+    isDecl (SimpleDeclaration _ _) = True
+    isDecl (DeclarationAssignment _ _ _) = True
+    isDecl _ = False
+
+    -- Accumulates list of (varName, type) tuples for each declaration statement
     getType :: [(String, DataType)] -> Stmt -> [(String, DataType)]
-    getType acc (SimpleDeclaration dataType (Var varName)) = (varName, determineDataType dataType) : acc
-    getType acc (DeclarationAssignment dataType varName _) = (varName, determineDataType dataType) : acc
+    getType acc (SimpleDeclaration dataType (Var varName)) =
+      (varName, determineDataType dataType) : acc
+    getType acc (DeclarationAssignment dataType varName _) =
+      (varName, determineDataType dataType) : acc
     getType acc _ = acc
 
-    -- determineVarType converts a string data type to a VarType
+    -- Convert a string data type to a DataType
     determineDataType :: String -> DataType
     determineDataType dataType = case dataType of
       "int" -> IntType
