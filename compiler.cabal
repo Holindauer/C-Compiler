@@ -26,10 +26,8 @@ source-repository head
 library
   exposed-modules:
       AST
-      CodeGen_Expressions
+      CodeGen_Declarations
       CodeGen_Main
-      CodeGen_Statements
-      Helper
       Lexer
       Parser_Expressions
       Parser_Helper
@@ -45,7 +43,9 @@ library
   build-depends:
       base >=4.7 && <5
     , containers
+    , hashable
     , hspec
+    , unordered-containers
   default-language: Haskell2010
 
 executable compiler-exe
@@ -61,18 +61,15 @@ executable compiler-exe
       base >=4.7 && <5
     , compiler
     , containers
+    , hashable
     , hspec
+    , unordered-containers
   default-language: Haskell2010
 
 test-suite compiler-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
-      CodeGeneratorAssignmentSpec
-      CodeGeneratorBssSpec
-      CodeGeneratorConditionalSpec
-      CodeGeneratorIncrementDecrementSpec
-      CodeGeneratorLoopSpec
       LexerSpec
       LexerThenParserSpec
       ParseAssignmentSpec
@@ -91,5 +88,7 @@ test-suite compiler-test
       base
     , compiler
     , containers
+    , hashable
     , hspec
+    , unordered-containers
   default-language: Haskell2010

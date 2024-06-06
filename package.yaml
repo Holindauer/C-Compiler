@@ -23,6 +23,8 @@ dependencies:
 - base >= 4.7 && < 5
 - hspec
 - containers  
+- unordered-containers
+- hashable
 
 ghc-options:
 - -Wall
@@ -49,6 +51,8 @@ executables:
     dependencies:
     - compiler
     - containers
+    - unordered-containers
+    - hashable
 
 tests:
   compiler-test:
@@ -59,5 +63,7 @@ tests:
       - compiler  # this should match the name of your library
       - hspec
       - containers
+      - unordered-containers
+      - hashable
     tools:
       hspec-discover: {}
