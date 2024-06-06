@@ -19,10 +19,18 @@ generateCode :: Program -> String
 generateCode program =
   let
     -- retrieve all types in the program
-    typeMap = getTypeMap program
+    (typeMap, declarationStmts) = getTypeMap program
+
+    -- categorize declarations
+    (dataDecls, bssDecls) = categorizeDeclarations declarationStmts
+
+
 
   in
-    show typeMap
+    show typeMap ++ "\n" ++
+    show declarationStmts ++ "\n" ++
+    "Data Declarations: " ++ show dataDecls ++ "\n" ++
+    "Bss Declarations: " ++ show bssDecls ++ "\n"
 
 
 

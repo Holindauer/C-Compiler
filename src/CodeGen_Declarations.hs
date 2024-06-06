@@ -47,3 +47,35 @@ getTypeMap stmts = (makeTypeMap declarationStmts, declarationStmts)
       "double" -> DoubleType
       "char" -> CharType
       _ -> error "Unsupported data type"
+
+
+-- the following functions will iterate through the list of declaration statements, filtering out the 
+-- following cases. If the declaration is for a literal, it will be handled by a function that generates
+-- the .data section. If the statement is a declaration of either an expression, a variable, or a simple 
+-- declaration it will be handled by a function that generates the .bss section. First these different 
+-- types of declaratiosn will be separated into their own lists, then the function will return a tuple of 
+-- the lists of declarations 
+
+
+-- Function to categorize declaration statements based on whether 
+-- they should be declared within the .data or .bss section
+categorizeDeclarations :: [Stmt] -> ([Stmt], [Stmt])
+categorizeDeclarations stmts = (dataSectionStmts, bssSectionStmts)
+  where
+    dataSectionStmts = filter isLiteralDeclaration stmts
+    bssSectionStmts = filter isVarOrExprDeclaration stmts
+
+    isLiteralDeclaration :: Stmt -> Bool
+    isLiteralDeclaration (DeclarationAssignment _ _ (IntLit _)) = True
+    isLiteralDeclaration (DeclarationAssignment _ _ (FloatLit _)) = True
+    isLiteralDeclaration (DeclarationAssignment _ _ (DoubleLit _)) = True
+    isLiteralDeclaration (DeclarationAssignment _ _ (CharLit _)) = True
+    isLiteralDeclaration _ = False
+
+    isVarOrExprDeclaration :: Stmt -> Bool
+    isVarOrExprDeclaration (DeclarationAssignment _ _ (Var _)) = True
+    isVarOrExprDeclaration (DeclarationAssignment _ _ (BinOp _ _ _)) = True
+    isVarOrExprDeclaration (DeclarationAssignment _ _ (UnaryOp _ _)) = True
+    isVarOrExprDeclaration (SimpleDeclaration _ _) = True
+
+    isVarOrExprDeclaration _ = False
