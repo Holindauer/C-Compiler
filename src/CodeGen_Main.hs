@@ -27,13 +27,16 @@ generateCode program =
     -- generate the .data section
     dataSection = genDataSection dataDecls
 
+    -- generate the .bss section
+    bssSection = genBssSection bssDecls typeMap
 
   in
     show typeMap ++ "\n" ++
     show declarationStmts ++ "\n" ++
     "Data Declarations: " ++ show dataDecls ++ "\n" ++
     "Bss Declarations: " ++ show bssDecls ++ "\n"++ "\n\n\n" ++
-    dataSection
+    dataSection ++
+    bssSection ++ "\n"
 
 
 

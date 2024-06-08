@@ -82,19 +82,40 @@ filterDeclarations stmts = (dataSectionStmts, bssSectionStmts)
     isVarOrExprDeclaration _ = False
 
 
--- generate the .data section of the assembly code from a list of stmts. The input statements
+-- generates .data section of the assembly code from a list of stmts. The input statements
 -- are expected to have already been filted into .data section appropriate statements
 genDataSection :: [Stmt] -> String
-genDataSection stmts = foldl' appendDataSection "section .data\n" stmts
+genDataSection stmts = foldl' appendDataSection "section .data\n" stmts ++ "\n"
   where
     -- Appends a NASM .data section line for each declaration with a literal
     appendDataSection :: String -> Stmt -> String
     appendDataSection acc stmt = case stmt of
         DeclarationAssignment _ varName expr ->
             case expr of
-                IntLit value -> acc ++ "\t" ++ varName ++ " dd " ++ show value ++ "\t; 32-bit int\n"                       -- Double word for integers
-                FloatLit value -> acc ++ "\t" ++ varName ++ " dd " ++ show value ++ "\t; 32-bit single-precision float\n" -- Single precision float
-                DoubleLit value -> acc ++ "\t" ++ varName ++ " dq " ++ show value ++ "\t; 64-bit double-precision float\n"-- Double precision float
-                CharLit value -> acc ++ "\t" ++ varName ++ " db " ++ show (fromEnum value) ++ "\t; Byte for character\n"  -- Byte for characters 
+                IntLit value -> acc ++ "\t" ++ varName ++ " dd " ++ show value ++ "\t; 32-bit int\n"                       
+                FloatLit value -> acc ++ "\t" ++ varName ++ " dd " ++ show value ++ "\t; 32-bit single-precision float\n" 
+                DoubleLit value -> acc ++ "\t" ++ varName ++ " dq " ++ show value ++ "\t; 64-bit double-precision float\n"
+                CharLit value -> acc ++ "\t" ++ varName ++ " db " ++ show (fromEnum value) ++ "\t; Byte for character\n"  
                 _ -> acc 
         _ -> acc  -- Ignore non-literal expressions
+
+
+-- generates .bss section of the assembly code from a list of stmts. The input statements
+-- are expected to have already been filted into .bss section appropriate statements
+genBssSection stmts typeMap = foldl' (appendBssSection typeMap) "section .bss\n" stmts ++ "\n"
+  where
+    appendBssSection :: TypeMap -> String -> Stmt -> String
+    appendBssSection tMap acc stmt =
+      let varName = getVarName stmt
+      in case HashMap.lookup varName tMap of
+        Just IntType -> acc ++ "\t" ++ varName ++ " resd 1\t; 32-bit int\n"
+        Just FloatType -> acc ++ "\t" ++ varName ++ " resd 1\t; 32-bit single-precision float\n"
+        Just DoubleType -> acc ++ "\t" ++ varName ++ " resq 1\t; 64-bit double-precision float\n"
+        Just CharType -> acc ++ "\t" ++ varName ++ " resb 1\t; Byte for character\n"
+        _ -> acc  -- Handle unknown data types or missing entries quietly
+
+    -- get var name
+    getVarName :: Stmt -> String
+    getVarName (DeclarationAssignment _ varName _) = varName
+    getVarName (SimpleDeclaration _ (Var varName)) = varName
+    getVarName _ = ""  
