@@ -7,24 +7,22 @@ import Data.HashMap.Strict (HashMap)
 import Data.Hashable
 import Data.List (foldl')
 
-
-
 -- type alias for data types
 data DataType = IntType | FloatType | DoubleType | CharType | VoidType
   deriving (Eq, Show) 
 
--- type alias for a hashmap of variable names and their types
+-- type alias for a hashmap of var names and their types
 type TypeMap = HashMap String DataType
 
--- getTypeMap takes a list of statements and for each declaration statement, it returns 
--- a hashmap of variable names, their data types, and a list of each declaration stmt.
+-- getTypeMap collects each variable declaration from a list of stmts into a seperate list.
+-- It returns a hashmap (var name -> type) as well as the list of declaration stmts
 getTypeMap :: [Stmt] -> (TypeMap, [Stmt])
 getTypeMap stmts = (makeTypeMap allDeclarationStmts, allDeclarationStmts)
   where
     allDeclarationStmts = concatMap collectDeclarations stmts -- collect delcarations 
-    makeTypeMap = HashMap.fromList . foldl' getType []        -- make type hash map
+    makeTypeMap = HashMap.fromList . foldl' getType []        -- func that makes type hash map
 
-    -- collects all nested declarations within a statement
+    -- recursively collects all nested declarations within a statement
     collectDeclarations :: Stmt -> [Stmt]
 
     -- declarations (base case)
@@ -33,17 +31,17 @@ getTypeMap stmts = (makeTypeMap allDeclarationStmts, allDeclarationStmts)
 
     -- statements w/ stmt bodies (recursive case) 
     collectDeclarations (ForStmt initStmt _ _ body) =
-      collectDeclarations initStmt ++ concatMap collectDeclarations body
-    collectDeclarations (WhileStmt _ body) =
+      collectDeclarations initStmt ++ concatMap collectDeclarations body 
+    collectDeclarations (WhileStmt _ body) = 
       concatMap collectDeclarations body
     collectDeclarations (IfStmt _ thenBody elseBody) =
       concatMap collectDeclarations thenBody ++ concatMap collectDeclarations elseBody
-
     collectDeclarations _ = []
 
-    -- Takes a declaration statment and gets the var name and data type 
+    -- accepts a list of (var name, type) tuples and a declaration stmt. 
+    -- A tuple with that stmts var name and type is appended to the list
     getType :: [(String, DataType)] -> Stmt -> [(String, DataType)]
-    getType acc (SimpleDeclaration dataType (Var varName)) =
+    getType acc (SimpleDeclaration dataType (Var varName)) = -- 
       (varName, determineDataType dataType) : acc
     getType acc (DeclarationAssignment dataType varName _) =
       (varName, determineDataType dataType) : acc
@@ -58,23 +56,15 @@ getTypeMap stmts = (makeTypeMap allDeclarationStmts, allDeclarationStmts)
       "char" -> CharType
       _ -> error "Unsupported data type"
 
-
--- the following functions will iterate through the list of declaration statements, filtering out the 
--- following cases. If the declaration is for a literal, it will be handled by a function that generates
--- the .data section. If the statement is a declaration of either an expression, a variable, or a simple 
--- declaration it will be handled by a function that generates the .bss section. First these different 
--- types of declaratiosn will be separated into their own lists, then the function will return a tuple of 
--- the lists of declarations 
-
-
--- Function to categorize declaration statements based on whether 
--- they should be declared within the .data or .bss section
-categorizeDeclarations :: [Stmt] -> ([Stmt], [Stmt])
-categorizeDeclarations stmts = (dataSectionStmts, bssSectionStmts)
+-- Filters declaration stmts on if should be declared in .data or .bss section
+filterDeclarations :: [Stmt] -> ([Stmt], [Stmt])
+filterDeclarations stmts = (dataSectionStmts, bssSectionStmts)
   where
+    -- collect statements appropriate for .bss and .data sections into lists 
     dataSectionStmts = filter isLiteralDeclaration stmts
     bssSectionStmts = filter isVarOrExprDeclaration stmts
 
+    -- literal stmts belong to .data section
     isLiteralDeclaration :: Stmt -> Bool
     isLiteralDeclaration (DeclarationAssignment _ _ (IntLit _)) = True
     isLiteralDeclaration (DeclarationAssignment _ _ (FloatLit _)) = True
@@ -82,6 +72,7 @@ categorizeDeclarations stmts = (dataSectionStmts, bssSectionStmts)
     isLiteralDeclaration (DeclarationAssignment _ _ (CharLit _)) = True
     isLiteralDeclaration _ = False
 
+    -- variable, expression, and simple declarations belong to .bss section
     isVarOrExprDeclaration :: Stmt -> Bool
     isVarOrExprDeclaration (DeclarationAssignment _ _ (Var _)) = True
     isVarOrExprDeclaration (DeclarationAssignment _ _ (BinOp _ _ _)) = True
@@ -89,3 +80,21 @@ categorizeDeclarations stmts = (dataSectionStmts, bssSectionStmts)
     isVarOrExprDeclaration (SimpleDeclaration _ _) = True
 
     isVarOrExprDeclaration _ = False
+
+
+-- generate the .data section of the assembly code from a list of stmts. The input statements
+-- are expected to have already been filted into .data section appropriate statements
+genDataSection :: [Stmt] -> String
+genDataSection stmts = foldl' appendDataSection "section .data\n" stmts
+  where
+    -- Appends a NASM .data section line for each declaration with a literal
+    appendDataSection :: String -> Stmt -> String
+    appendDataSection acc stmt = case stmt of
+        DeclarationAssignment _ varName expr ->
+            case expr of
+                IntLit value -> acc ++ "\t" ++ varName ++ " dd " ++ show value ++ "\t; 32-bit int\n"                       -- Double word for integers
+                FloatLit value -> acc ++ "\t" ++ varName ++ " dd " ++ show value ++ "\t; 32-bit single-precision float\n" -- Single precision float
+                DoubleLit value -> acc ++ "\t" ++ varName ++ " dq " ++ show value ++ "\t; 64-bit double-precision float\n"-- Double precision float
+                CharLit value -> acc ++ "\t" ++ varName ++ " db " ++ show (fromEnum value) ++ "\t; Byte for character\n"  -- Byte for characters 
+                _ -> acc 
+        _ -> acc  -- Ignore non-literal expressions

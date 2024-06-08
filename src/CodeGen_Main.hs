@@ -21,16 +21,20 @@ generateCode program =
     -- retrieve all types in the program
     (typeMap, declarationStmts) = getTypeMap program
 
-    -- categorize declarations
-    (dataDecls, bssDecls) = categorizeDeclarations declarationStmts
+    -- filter declarations into .data and .bss sections
+    (dataDecls, bssDecls) = filterDeclarations declarationStmts
 
+    -- generate the .data section
+    dataSection = genDataSection dataDecls
 
 
   in
     show typeMap ++ "\n" ++
     show declarationStmts ++ "\n" ++
     "Data Declarations: " ++ show dataDecls ++ "\n" ++
-    "Bss Declarations: " ++ show bssDecls ++ "\n"
+    "Bss Declarations: " ++ show bssDecls ++ "\n"++ "\n\n\n" ++
+    dataSection
+
 
 
 
