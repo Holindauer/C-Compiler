@@ -48,6 +48,7 @@ lexer (c:cs)
   | isSpace c = lexer cs       -- Skip whitespace
   | isDigit c = lexNumber c cs -- Handle numbers
   | isAlpha c = lexIdent c cs  -- Handle identifiers
+  | c == '\'' = lexChar cs     -- Handle char literals
 
   -- overloaded assignment operators
   | c == '+' && not (null cs) && head cs == '=' = TPlusAssign : lexer (tail cs)
@@ -99,6 +100,14 @@ lexNumber c cs
     -- This 'where clause' will split the full number from the rest of the string. The remaining 
     -- string is recursively passed back to the lexer function for further processing. 
   where (num, rest) = span (\x -> isDigit x || x == '.') (c:cs)
+
+
+-- lexChar handles lexing of character literals
+lexChar :: String -> [Token]
+lexChar cs = case cs of
+    (x:'\'':rest) -> TCharLit x : lexer rest 
+    _ -> error "Malformed character literal" 
+
 
 -- lexIdent function handles the lexing of identifiers (keywords, variable names, etc.)
 lexIdent :: Char -> String -> [Token]
