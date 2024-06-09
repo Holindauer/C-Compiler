@@ -4,6 +4,7 @@
 module CodeGen_Main where
 
 import CodeGen_Declarations
+import CodeGen_Helper
 
 import System.IO
 import AST
@@ -30,6 +31,8 @@ generateCode program =
     -- generate the .bss section
     bssSection = genBssSection bssDecls typeMap
 
+    
+
   in
     show typeMap ++ "\n" ++
     show declarationStmts ++ "\n" ++
@@ -44,4 +47,5 @@ generateCode program =
 -- Writes the assembly code to a file
 writeToFile :: FilePath -> String -> IO ()
 writeToFile path content = writeFile path content
+
 

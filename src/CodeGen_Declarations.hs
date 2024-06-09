@@ -6,55 +6,8 @@ import qualified Data.HashMap.Strict as HashMap
 import Data.HashMap.Strict (HashMap)
 import Data.Hashable
 import Data.List (foldl')
+import CodeGen_Helper
 
--- type alias for data types
-data DataType = IntType | FloatType | DoubleType | CharType | VoidType
-  deriving (Eq, Show) 
-
--- type alias for a hashmap of var names and their types
-type TypeMap = HashMap String DataType
-
--- getTypeMap collects each variable declaration from a list of stmts into a seperate list.
--- It returns a hashmap (var name -> type) as well as the list of declaration stmts
-getTypeMap :: [Stmt] -> (TypeMap, [Stmt])
-getTypeMap stmts = (makeTypeMap allDeclarationStmts, allDeclarationStmts)
-  where
-    allDeclarationStmts = concatMap collectDeclarations stmts -- collect delcarations 
-    makeTypeMap = HashMap.fromList . foldl' getType []        -- func that makes type hash map
-
-    -- recursively collects all nested declarations within a statement
-    collectDeclarations :: Stmt -> [Stmt]
-
-    -- declarations (base case)
-    collectDeclarations stmt@(SimpleDeclaration _ _) = [stmt] 
-    collectDeclarations stmt@(DeclarationAssignment _ _ _) = [stmt]
-
-    -- statements w/ stmt bodies (recursive case) 
-    collectDeclarations (ForStmt initStmt _ _ body) =
-      collectDeclarations initStmt ++ concatMap collectDeclarations body 
-    collectDeclarations (WhileStmt _ body) = 
-      concatMap collectDeclarations body
-    collectDeclarations (IfStmt _ thenBody elseBody) =
-      concatMap collectDeclarations thenBody ++ concatMap collectDeclarations elseBody
-    collectDeclarations _ = []
-
-    -- accepts a list of (var name, type) tuples and a declaration stmt. 
-    -- A tuple with that stmts var name and type is appended to the list
-    getType :: [(String, DataType)] -> Stmt -> [(String, DataType)]
-    getType acc (SimpleDeclaration dataType (Var varName)) = -- 
-      (varName, determineDataType dataType) : acc
-    getType acc (DeclarationAssignment dataType varName _) =
-      (varName, determineDataType dataType) : acc
-    getType acc _ = acc
-
-    -- converts string data type to DataType
-    determineDataType :: String -> DataType
-    determineDataType dataType = case dataType of
-      "int" -> IntType
-      "float" -> FloatType
-      "double" -> DoubleType
-      "char" -> CharType
-      _ -> error "Unsupported data type"
 
 -- Filters declaration stmts on if should be declared in .data or .bss section
 filterDeclarations :: [Stmt] -> ([Stmt], [Stmt])
