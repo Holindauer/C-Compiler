@@ -37,7 +37,6 @@ filterDeclarations stmts = (dataSectionStmts, bssSectionStmts)
 
 -------------------------------------------------------------------------------------------------- .data section generation 
 
--- ! continue here, its almost done
 -- Generates the .data section of assembly code from a list of statements
 genDataSection :: [Stmt] -> Program -> (String, HashMap String String)
 genDataSection stmts program =
@@ -88,9 +87,13 @@ getFloatDoubleLits stmts =
         namedFloats = zipWith (\i (num, dtype) -> (num, "float_" ++ show i, dtype)) [1..] floatLits
     in namedFloats
 
--- Helper to get float literals from a single statement
+-- Helper to get float literals used in intermediate computation from each type of statement
 getFloatLits :: Stmt -> [(String, DataType)]
 getFloatLits (DeclarationAssignment _ _ expr) = getExprFloats expr
+getFloatLits (AssignStmt _ expr) = getExprFloats expr
+getFloatLits (ForStmt init _ _ body) = getFloatLits init ++ concatMap getFloatLits body
+getFloatLits (WhileStmt _ body) = concatMap getFloatLits body
+getFloatLits (IfStmt _ thenBody elseBody) = concatMap getFloatLits thenBody ++ concatMap getFloatLits elseBody
 getFloatLits _ = []
 
 -- Recursively finds float literals within expressions
@@ -104,7 +107,7 @@ getExprFloats _ = []
 
 -- generates .bss section of the assembly code from a list of stmts. The input statements
 -- are expected to have already been filted into .bss section appropriate statements
-genBssSection stmts typeMap = foldl' (appendBssSection typeMap) "section .bss\n" stmts ++ "\n"
+genBssSection stmts typeMap = foldl' (appendBssSection typeMap) "section .bss\n" stmts ++ "\n\n"
   where
     appendBssSection :: TypeMap -> String -> Stmt -> String
     appendBssSection tMap acc stmt =
