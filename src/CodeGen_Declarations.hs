@@ -8,6 +8,7 @@ import Data.Hashable
 import Data.List (foldl')
 import CodeGen_Helper
 
+-------------------------------------------------------------------------------------------------- .data and .bss section stmt sort
 
 -- Filters declaration stmts on if should be declared in .data or .bss section
 filterDeclarations :: [Stmt] -> ([Stmt], [Stmt])
@@ -34,23 +35,71 @@ filterDeclarations stmts = (dataSectionStmts, bssSectionStmts)
 
     isVarOrExprDeclaration _ = False
 
+-------------------------------------------------------------------------------------------------- .data section generation 
 
--- generates .data section of the assembly code from a list of stmts. The input statements
--- are expected to have already been filted into .data section appropriate statements
-genDataSection :: [Stmt] -> String
-genDataSection stmts = foldl' appendDataSection "section .data\n" stmts ++ "\n"
+-- ! continue here, its almost done
+-- Generates the .data section of assembly code from a list of statements
+genDataSection :: [Stmt] -> Program -> (String, HashMap String String)
+genDataSection stmts program =
+    let
+        -- Begin .data by appending declarations
+        declarations = foldl' appendDeclarations "section .data\n" stmts
+
+        -- Find all float and double literals in the program, assinging each a unique name 
+        namedFloats = getFloatDoubleLits program
+
+        -- Appen intermediate float literals to the .data section
+        fullDataSection = appendIntermediateFloats declarations namedFloats ++ "\n"
+
+        -- Create a map of float literals to their names
+        floatMap = HashMap.fromList $ map (\(num, name, _) -> (num, name)) namedFloats
+
+    in (fullDataSection, floatMap)
+
+-- Appends data section lines for each declaration with a literal
+appendDeclarations :: String -> Stmt -> String
+appendDeclarations acc (DeclarationAssignment dataType varName expr) =
+    case expr of
+        IntLit value -> acc ++ "\t" ++ varName ++ " dd " ++ show value ++ " ; 32-bit int\n"
+        FloatLit value -> acc ++ "\t" ++ varName ++ " dd " ++ show value ++ " ; 32-bit single-precision float\n"
+        DoubleLit value -> acc ++ "\t" ++ varName ++ " dq " ++ show value ++ " ; 64-bit double-precision float\n"
+        CharLit value -> acc ++ "\t" ++ varName ++ " db " ++ show (fromEnum value) ++ " ; Byte for character\n"
+        _ -> acc
+appendDataSection acc _ = acc
+
+-- Adds intermediate floating point literals to the .data section
+appendIntermediateFloats :: String -> [(String, String, DataType)] -> String
+appendIntermediateFloats acc floatData =
+    foldl' appendFloatData acc floatData
   where
-    -- Appends a NASM .data section line for each declaration with a literal
-    appendDataSection :: String -> Stmt -> String
-    appendDataSection acc stmt = case stmt of
-        DeclarationAssignment _ varName expr ->
-            case expr of
-                IntLit value -> acc ++ "\t" ++ varName ++ " dd " ++ show value ++ "\t; 32-bit int\n"                       
-                FloatLit value -> acc ++ "\t" ++ varName ++ " dd " ++ show value ++ "\t; 32-bit single-precision float\n" 
-                DoubleLit value -> acc ++ "\t" ++ varName ++ " dq " ++ show value ++ "\t; 64-bit double-precision float\n"
-                CharLit value -> acc ++ "\t" ++ varName ++ " db " ++ show (fromEnum value) ++ "\t; Byte for character\n"  
-                _ -> acc 
-        _ -> acc  -- Ignore non-literal expressions
+    -- Appends a single float literal declaration to the .data section
+    appendFloatData acc (num, floatName, dataType) =
+        case dataType of
+            FloatType -> acc ++ "\t" ++ floatName ++ " dd " ++ num ++ " ; 32-bit single-precision float\n"
+            DoubleType -> acc ++ "\t" ++  floatName ++ " dq " ++ num ++ " ; 64-bit double-precision float\n"
+            _ -> acc
+
+-- Retrieves and names all float/double literals from a list of statements
+getFloatDoubleLits :: [Stmt] -> [(String, String, DataType)] -- [(literal as str, name, type)]
+getFloatDoubleLits stmts =
+    let
+        -- Get all float literals from the program
+        floatLits = concatMap getFloatLits stmts
+        namedFloats = zipWith (\i (num, dtype) -> (num, "float_" ++ show i, dtype)) [1..] floatLits
+    in namedFloats
+
+-- Helper to get float literals from a single statement
+getFloatLits :: Stmt -> [(String, DataType)]
+getFloatLits (DeclarationAssignment _ _ expr) = getExprFloats expr
+getFloatLits _ = []
+
+-- Recursively finds float literals within expressions
+getExprFloats :: Expr -> [(String, DataType)]
+getExprFloats (FloatLit value) = [(show value, FloatType)]
+getExprFloats (DoubleLit value) = [(show value, DoubleType)]
+getExprFloats _ = []
+
+-------------------------------------------------------------------------------------------------- .bss section generation
 
 
 -- generates .bss section of the assembly code from a list of stmts. The input statements

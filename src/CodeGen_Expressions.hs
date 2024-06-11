@@ -44,7 +44,7 @@ literalEvalSr :: String -> Integer -> String -> DataType -> (String, String, Int
 literalEvalSr baseName idx value valueType =
   let
     srName = baseName ++ "_" ++ show idx                    -- sr name
-    moveInstruction = moveInstr_RegToVar valueType value    -- move instr
+    moveInstruction = moveInstr_LitToReg valueType value    -- move instr
     srDef = srName ++ ":\n" ++ moveInstruction ++ "\tret\n" -- sr def
 
   in (srDef, srName, idx + 1) -- inc idx for next sr inc case of nesting
@@ -54,7 +54,7 @@ variableEvalSr :: String -> Integer -> String -> DataType -> (String, String, In
 variableEvalSr baseName idx varName varType =
   let
     srName = baseName ++ "_" ++ show idx                    -- sr name 
-    moveInstruction = moveInstr_VarToReg varType varName    -- move instr
+    moveInstruction = moveInstr_LitToReg varType varName    -- move instr
     srDef = srName ++ ":\n" ++ moveInstruction ++ "\tret\n" -- sr def
 
   in (srDef, srName, idx + 1) -- inc idx for next sr inc case of nesting

@@ -10,6 +10,10 @@ import Data.List (foldl')
 data DataType = IntType | FloatType | DoubleType | CharType | VoidType
   deriving (Eq, Show) 
 
+-- type alias for names of floats in .data section used for intermediate computation
+-- maps string floats to their unique label name in memory
+data FloatMap = HashMap String String
+
 -- type alias for a hashmap of var names and their types
 type TypeMap = HashMap String DataType
 
@@ -99,15 +103,15 @@ moveInstr_VarToReg exprType variable = case exprType of
   _ -> error "Unsupported expression type"
 
 
--- -- func to gen instruction for moving a literal into a type specific output register
--- -- This requires a slight refactor/addition to the .data section bc we will need to 
--- -- store float literals in .data bc we cannot directly move them into xmm registers
--- moveInstr_LitToReg :: VarType -> String -> String
--- moveInstr_LitToReg exprType label = case exprType of
---   IntType -> "\tmov rax, " ++ label ++ "\n"
---   CharType -> "\tmov al, " ++ label ++ "\n"
---   FloatType -> "\tmovss xmm0, [" ++ label ++ "]\n" -- fix
---   DoubleType -> "\tmovsd xmm1, [" ++ label ++ "]\n" -- fix
---   _ -> error "Unsupported expression type"
+-- func to gen instruction for moving a literal into a type specific output register
+-- This requires a slight refactor/addition to the .data section bc we will need to 
+-- store float literals in .data bc we cannot directly move them into xmm registers
+moveInstr_LitToReg :: DataType -> String -> String
+moveInstr_LitToReg exprType label = case exprType of
+  IntType -> "\tmov rax, " ++ label ++ "\n"
+  CharType -> "\tmov al, " ++ label ++ "\n"
+  FloatType -> "\tmovss xmm0, [" ++ label ++ "]\n" -- fix
+  DoubleType -> "\tmovsd xmm1, [" ++ label ++ "]\n" -- fix
+  _ -> error "Unsupported expression type"
 
 

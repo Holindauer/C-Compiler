@@ -22,8 +22,8 @@ generateStmtSr optionalPrefix index stmt typeMap = case stmt of
   AssignStmt lValue expr -> 
     let assignSrName = optionalPrefix ++ lValue ++ "_assignment_" ++ show index
     in (genAssignmentSr assignSrName index lValue expr typeMap) 
-
-  _ -> error "Unsupported statement type" 
+    
+  _ -> ("", "")-- error "Unsupported statement type" 
 
 
 

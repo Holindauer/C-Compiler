@@ -27,7 +27,7 @@ generateCode program =
     (dataDecls, bssDecls) = filterDeclarations declarationStmts
 
     -- generate the .data section
-    dataSection = genDataSection dataDecls
+    (dataSection, floatMap) = genDataSection dataDecls program
 
     -- generate the .bss section
     bssSection = genBssSection bssDecls typeMap
@@ -36,10 +36,10 @@ generateCode program =
     textSection = genTextSection program typeMap
 
   in
-    show typeMap ++ "\n" ++
-    show declarationStmts ++ "\n" ++
-    "Data Declarations: " ++ show dataDecls ++ "\n" ++
-    "Bss Declarations: " ++ show bssDecls ++ "\n"++ "\n\n\n" ++
+    -- show typeMap ++ "\n" ++
+    -- show declarationStmts ++ "\n" ++
+    -- "Data Declarations: " ++ show dataDecls ++ "\n" ++
+    -- "Bss Declarations: " ++ show bssDecls ++ "\n"++ "\n\n\n" ++
     dataSection ++
     bssSection ++ "\n" ++  
     textSection
