@@ -7,6 +7,10 @@ import CodeGen_Declarations
 import CodeGen_Expressions
 import CodeGen_Helper
 
+import qualified Data.HashMap.Strict as HashMap
+import Data.HashMap.Strict (HashMap)
+import Data.Hashable
+
 
 -------------------------------------------------------------------------------------------------- Statement Subroutine Generation Master Function
 
@@ -15,13 +19,13 @@ import CodeGen_Helper
 -- @param the statement and its index wrt to the list of statements collected by the pasrer
 -- @dev There is also an optional baseName parameter that can be used to inject a unique prefix into the 
 -- subroutine name. An empty string should be passed into the prefix if no prefix is desired.
-generateStmtSr :: String -> Integer -> Stmt -> TypeMap -> (String, String)
-generateStmtSr optionalPrefix index stmt typeMap = case stmt of
+generateStmtSr :: String -> Integer -> Stmt -> TypeMap -> HashMap String String -> (String, String)
+generateStmtSr optionalPrefix index stmt typeMap floatMap = case stmt of
 
   -- assignment stmt of preinitialized variable
   AssignStmt lValue expr -> 
     let assignSrName = optionalPrefix ++ lValue ++ "_assignment_" ++ show index
-    in (genAssignmentSr assignSrName index lValue expr typeMap) 
+    in (genAssignmentSr assignSrName index lValue expr typeMap floatMap) 
     
   _ -> ("", "")-- error "Unsupported statement type" 
 
@@ -35,12 +39,12 @@ generateStmtSr optionalPrefix index stmt typeMap = case stmt of
 -- within the assignment subroutine. The output of the expr eval is placed into a different regeister depending on its 
 -- type. Then it is moved directly into the memory location of the variable.
 -- @param [name of subroutine], [index of stmt], [name of variable], [expression to be assigned]
-genAssignmentSr :: String -> Integer -> String -> Expr -> TypeMap -> (String, String)
-genAssignmentSr assignSrName index lValue expr typeMap = 
+genAssignmentSr :: String -> Integer -> String -> Expr -> TypeMap -> HashMap String String -> (String, String)
+genAssignmentSr assignSrName index lValue expr typeMap floatMap = 
   let
     -- Generate expr eval subroutine
     exprEvalSrBaseName = assignSrName ++ "_" ++ lValue ++ "_expr_eval_" ++ show index
-    (exprEvalSrDef, exprEvalSrName, _) = genExprEvalSr exprEvalSrBaseName 0 expr typeMap
+    (exprEvalSrDef, exprEvalSrName, _) = genExprEvalSr exprEvalSrBaseName 0 expr typeMap floatMap
 
     -- type-specific move command
     moveCommand = moveInstr_RegToVar (getExprType expr typeMap) lValue

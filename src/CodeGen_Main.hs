@@ -33,16 +33,14 @@ generateCode program =
     bssSection = genBssSection bssDecls typeMap
 
     -- generate the .text section 
-    textSection = genTextSection program typeMap
+    textSection = genTextSection program typeMap floatMap
 
   in
     -- show typeMap ++ "\n" ++
     -- show declarationStmts ++ "\n" ++
     -- "Data Declarations: " ++ show dataDecls ++ "\n" ++
     -- "Bss Declarations: " ++ show bssDecls ++ "\n"++ "\n\n\n" ++
-    dataSection ++
-    bssSection ++ "\n" ++  
-    textSection
+    dataSection ++ bssSection ++ textSection
 
 -- Writes the assembly code to a file
 writeToFile :: FilePath -> String -> IO ()

@@ -106,12 +106,16 @@ moveInstr_VarToReg exprType variable = case exprType of
 -- func to gen instruction for moving a literal into a type specific output register
 -- This requires a slight refactor/addition to the .data section bc we will need to 
 -- store float literals in .data bc we cannot directly move them into xmm registers
-moveInstr_LitToReg :: DataType -> String -> String
-moveInstr_LitToReg exprType label = case exprType of
-  IntType -> "\tmov rax, " ++ label ++ "\n"
-  CharType -> "\tmov al, " ++ label ++ "\n"
-  FloatType -> "\tmovss xmm0, [" ++ label ++ "]\n" -- fix
-  DoubleType -> "\tmovsd xmm1, [" ++ label ++ "]\n" -- fix
-  _ -> error "Unsupported expression type"
+moveInstr_LitToReg :: DataType -> String -> HashMap String String -> String
+moveInstr_LitToReg exprType literal floatMap = 
+  case exprType of
+    IntType -> "\tmov rax, " ++ literal ++ "\n"
+    CharType -> "\tmov al, " ++ literal ++ "\n"
+    FloatType -> "\tmovss xmm0, [" ++ floatVar ++ "]\n" 
+    DoubleType -> "\tmovsd xmm1, [" ++ floatVar ++ "]\n" 
+    _ -> error "Unsupported expression type"
+  where 
+    floatVar = floatMap HashMap.! literal
+
 
 

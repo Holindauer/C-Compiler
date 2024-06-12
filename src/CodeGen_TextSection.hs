@@ -5,12 +5,16 @@ import CodeGen_Declarations
 import CodeGen_Statements
 import CodeGen_Helper
 
+import qualified Data.HashMap.Strict as HashMap
+import Data.HashMap.Strict (HashMap)
+import Data.Hashable
+
 -- genTextSection returns a list of tuples containing subroutine calls and their definitions
-genTextSection :: [Stmt] -> TypeMap -> String
-genTextSection stmts typeMap = 
+genTextSection :: [Stmt] -> TypeMap -> HashMap String String -> String
+genTextSection stmts typeMap floatMap = 
   let 
     -- Generate tuples of subroutine calls and definitions from statements
-    textTuples = map (\stmt -> uncurry3 generateStmtSr stmt typeMap) indexedStmts
+    textTuples = map (\stmt -> uncurry3 generateStmtSr stmt typeMap floatMap) indexedStmts
 
     -- Concatenate definitions and calls of .text section into single strings respectively
     textSrDefs = concatMap (\(_, def) -> def) textTuples 
