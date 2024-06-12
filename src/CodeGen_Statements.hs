@@ -26,16 +26,23 @@ generateStmtSr optionalPrefix index stmt typeMap floatMap = case stmt of
   AssignStmt lValue expr -> 
     let assignSrName = optionalPrefix ++ lValue ++ "_assignment_" ++ show index
     in (genAssignmentSr assignSrName index lValue expr typeMap floatMap) 
+   
+    -- declarations w/ assignment (specifically binary and unary ops that cannot be directly assigned in .data section)
+  DeclarationAssignment dataType lValue expr -> case expr of
+    BinOp _ _ _ -> getDeclarationAssignSr optionalPrefix index lValue expr typeMap floatMap
+    UnaryOp _ _ -> getDeclarationAssignSr optionalPrefix index lValue expr typeMap floatMap
+    _ -> ("", "") 
+
+  -- simple declarations are ignored as they are handled in the .bss section
+  SimpleDeclaration _ _ -> ("", "")
+  
   
   -- Return stmt
   ReturnStmt expr -> 
     let returnSrName = optionalPrefix ++ "return_stmt_" ++ show index
     in genReturnStmtSr returnSrName index expr typeMap floatMap
 
-    
   _ -> ("", "")-- error "Unsupported statement type" 
-
-
 
 
 ------------------------------------------------------------------------------------------------- Asssignment Subroutine generation
@@ -66,6 +73,15 @@ genAssignmentSr assignSrName index lValue expr typeMap floatMap =
 
   in (assignSrCall, fullSrDef)
 
+
+------------------------------------------------------------------------------------------------- Declaration Statements
+
+-- getDeclarationAssignSr is a wrapper for genAssignmentSr that is used specifically for declarations with
+-- assignment of binary and unary expressions. This function is used within a case statement in generateStmtSr
+getDeclarationAssignSr :: String -> Integer -> String -> Expr -> TypeMap -> HashMap String String -> (String, String)
+getDeclarationAssignSr optionalPrefix index lValue expr typeMap floatMap = 
+  let assignSrName = optionalPrefix ++ lValue ++ "_assignment_" ++ show index
+  in (genAssignmentSr assignSrName index lValue expr typeMap floatMap)
 
 ------------------------------------------------------------------------------------------------- Return Statements
 
