@@ -26,6 +26,12 @@ generateStmtSr optionalPrefix index stmt typeMap floatMap = case stmt of
   AssignStmt lValue expr -> 
     let assignSrName = optionalPrefix ++ lValue ++ "_assignment_" ++ show index
     in (genAssignmentSr assignSrName index lValue expr typeMap floatMap) 
+  
+  -- Return stmt
+  ReturnStmt expr -> 
+    let returnSrName = optionalPrefix ++ "return_stmt_" ++ show index
+    in genReturnStmtSr returnSrName index expr typeMap floatMap
+
     
   _ -> ("", "")-- error "Unsupported statement type" 
 
@@ -56,6 +62,36 @@ genAssignmentSr assignSrName index lValue expr typeMap floatMap =
                       moveCommand ++ "\tret\n"                  -- move result into var 
 
     -- Combine the expr eval and assignment subroutine definitions
-    fullSrDef = assignmentSrDef ++ exprEvalSrDef
+    fullSrDef = "\n;Assignment Statement\n" ++ assignmentSrDef ++ exprEvalSrDef
 
   in (assignSrCall, fullSrDef)
+
+
+------------------------------------------------------------------------------------------------- Return Statements
+
+-- genReturnStmtSr gemnerates a subroutine call and associated definitions for a return statement. 
+-- At this stage, the compiler supports only the main function, so the return statement will exit
+-- the program with a syscall to exit with the value being return set as the exit code. In the 
+-- future, when user defined functions are added, the return statement must differentiate between
+-- the program exit and a function return. NOTE that exit codes being returned must be in range of
+-- 0-255.
+genReturnStmtSr :: String -> Integer -> Expr -> TypeMap -> HashMap String String -> (String, String) 
+genReturnStmtSr baseName index expr typeMap floatMap = 
+  let
+    -- gen subroutine for expression evaluation
+    (exprEvalSrDef, exprEvalSrName, _) = genExprEvalSr baseName index expr typeMap floatMap
+
+    -- gen subroutine for return statement
+    returnSrName = baseName ++ "_return_" ++ show index
+    returnSrCall = "\tcall " ++ returnSrName ++ "\n"
+
+    returnSrDef = returnSrName ++ ":\n" ++
+                  "\tcall " ++ exprEvalSrName ++ "\n" ++   -- eval expr
+                  "\tmov rdi, rax\n" ++                    -- move result into rdi
+                  "\tmov rax, 60\n" ++                     -- syscall for exit
+                  "\tsyscall\n"                            -- exit
+
+    -- Combine all subroutine defs
+    fullSrDef = "\n;Return Statement\n" ++ returnSrDef ++ exprEvalSrDef
+
+  in (returnSrCall, fullSrDef)

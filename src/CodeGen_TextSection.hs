@@ -26,7 +26,7 @@ genTextSection stmts typeMap floatMap =
       "global _start\nsection .text\n\n" ++ 
       
       -- _start def w/ calls to all subroutines
-      "_start:\n" ++ textSrCalls  ++ "\tret\n\n" ++
+      "_start:\n" ++ textSrCalls  ++ "\n\n" ++
 
       -- subroutine definitions
       textSrDefs

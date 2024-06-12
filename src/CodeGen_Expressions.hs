@@ -27,7 +27,7 @@ genExprEvalSr baseName idx expr typeMap floatMap = case expr of
 
   Var varName -> variableEvalSr baseName idx varName (typeMap HashMap.! varName) floatMap
 
---   -- recursive cases
+--   -- recursive cases -- ! add this functionality back
 --   UnaryOp op subExpr ->
 --     let (subSr, subName, newIndex) = genExprEvalSr baseName index subExpr typeMap
 --     in unaryOpEvalSr baseName newIndex op subExpr subName

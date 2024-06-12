@@ -40,7 +40,9 @@ generateCode program =
     -- show declarationStmts ++ "\n" ++
     -- "Data Declarations: " ++ show dataDecls ++ "\n" ++
     -- "Bss Declarations: " ++ show bssDecls ++ "\n"++ "\n\n\n" ++
-    dataSection ++ bssSection ++ textSection
+    dataSection ++ 
+    -- bssSection ++
+    textSection
 
 -- Writes the assembly code to a file
 writeToFile :: FilePath -> String -> IO ()
