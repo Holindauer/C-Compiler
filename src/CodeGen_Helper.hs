@@ -12,7 +12,7 @@ data DataType = IntType | FloatType | DoubleType | CharType | VoidType
 
 -- type alias for names of floats in .data section used for intermediate computation
 -- maps string floats to their unique label name in memory
-data FloatMap = HashMap String String
+type FloatMap = HashMap String String
 
 -- type alias for a hashmap of var names and their types
 type TypeMap = HashMap String DataType
@@ -106,7 +106,7 @@ moveInstr_VarToReg exprType variable = case exprType of
 -- func to gen instruction for moving a literal into a type specific output register
 -- This requires a slight refactor/addition to the .data section bc we will need to 
 -- store float literals in .data bc we cannot directly move them into xmm registers
-moveInstr_LitToReg :: DataType -> String -> HashMap String String -> String
+moveInstr_LitToReg :: DataType -> String -> FloatMap -> String
 moveInstr_LitToReg exprType literal floatMap = 
   case exprType of
     IntType -> "\tmov rax, " ++ literal ++ "\n"

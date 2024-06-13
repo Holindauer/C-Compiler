@@ -10,7 +10,7 @@ import Data.HashMap.Strict (HashMap)
 import Data.Hashable
 
 -- genTextSection returns a list of tuples containing subroutine calls and their definitions
-genTextSection :: [Stmt] -> TypeMap -> HashMap String String -> String
+genTextSection :: [Stmt] -> TypeMap -> FloatMap -> String
 genTextSection stmts typeMap floatMap = 
   let 
     -- Generate tuples of subroutine calls and definitions from statements

@@ -19,7 +19,7 @@ import Data.Hashable
 -- @param the statement and its index wrt to the list of statements collected by the pasrer
 -- @dev There is also an optional baseName parameter that can be used to inject a unique prefix into the 
 -- subroutine name. An empty string should be passed into the prefix if no prefix is desired.
-generateStmtSr :: String -> Integer -> Stmt -> TypeMap -> HashMap String String -> (String, String)
+generateStmtSr :: String -> Integer -> Stmt -> TypeMap -> FloatMap -> (String, String)
 generateStmtSr optionalPrefix index stmt typeMap floatMap = case stmt of
 
   -- assignment stmt of preinitialized variable
@@ -51,7 +51,7 @@ generateStmtSr optionalPrefix index stmt typeMap floatMap = case stmt of
 -- within the assignment subroutine. The output of the expr eval is placed into a different regeister depending on its 
 -- type. Then it is moved directly into the memory location of the variable.
 -- @param [name of subroutine], [index of stmt], [name of variable], [expression to be assigned]
-genAssignmentSr :: String -> Integer -> String -> Expr -> TypeMap -> HashMap String String -> (String, String)
+genAssignmentSr :: String -> Integer -> String -> Expr -> TypeMap -> FloatMap -> (String, String)
 genAssignmentSr assignSrName index lValue expr typeMap floatMap = 
   let
     -- Generate expr eval subroutine
@@ -77,7 +77,7 @@ genAssignmentSr assignSrName index lValue expr typeMap floatMap =
 
 -- getDeclarationAssignSr is a wrapper for genAssignmentSr that is used specifically for declarations with
 -- assignment of binary and unary expressions. This function is used within a case statement in generateStmtSr
-getDeclarationAssignSr :: String -> Integer -> String -> Expr -> TypeMap -> HashMap String String -> (String, String)
+getDeclarationAssignSr :: String -> Integer -> String -> Expr -> TypeMap -> FloatMap -> (String, String)
 getDeclarationAssignSr optionalPrefix index lValue expr typeMap floatMap = 
   let assignSrName = optionalPrefix ++ lValue ++ "_assignment_" ++ show index
   in (genAssignmentSr assignSrName index lValue expr typeMap floatMap)
@@ -90,8 +90,10 @@ getDeclarationAssignSr optionalPrefix index lValue expr typeMap floatMap =
 -- future, when user defined functions are added, the return statement must differentiate between
 -- the program exit and a function return. NOTE that exit codes being returned must be in range of
 -- 0-255.
-genReturnStmtSr :: String -> Integer -> Expr -> TypeMap -> HashMap String String -> (String, String) 
+genReturnStmtSr :: String -> Integer -> Expr -> TypeMap -> FloatMap -> (String, String) 
 genReturnStmtSr baseName index expr typeMap floatMap = 
+
+  -- ! might be good to assert that the expr is of type int or char here
   let
     -- gen subroutine for expression evaluation
     (exprEvalSrDef, exprEvalSrName, _) = genExprEvalSr baseName index expr typeMap floatMap

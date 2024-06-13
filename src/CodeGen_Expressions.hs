@@ -14,7 +14,7 @@ import Data.Hashable
 -- This involves a depth first traversal of the AST containing the expr. Literal/Variable expr are the base 
 -- case. Unary/Binary expr recurse.
 -- Recursively generates and chains together subroutine definitions for evaluating an expression
-genExprEvalSr :: String -> Integer -> Expr -> TypeMap -> HashMap String String -> (String, String, Integer)
+genExprEvalSr :: String -> Integer -> Expr -> TypeMap -> FloatMap -> (String, String, Integer)
 genExprEvalSr baseName idx expr typeMap floatMap = case expr of
 
   -- literal base case
@@ -41,7 +41,7 @@ genExprEvalSr baseName idx expr typeMap floatMap = case expr of
   _ -> error "Unsupported expression type"
 
 -- generates sr for moving lieral into output register
-literalEvalSr :: String -> Integer -> String -> DataType -> HashMap String String -> (String, String, Integer)
+literalEvalSr :: String -> Integer -> String -> DataType -> FloatMap -> (String, String, Integer)
 literalEvalSr baseName idx value valueType floatMap =
   let
     srName = baseName ++ "_" ++ show idx                           -- sr name
@@ -51,7 +51,7 @@ literalEvalSr baseName idx value valueType floatMap =
   in (srDef, srName, idx + 1) -- inc idx for next sr inc case of nesting
 
 -- generates sr for moving value within a variable into an output register
-variableEvalSr :: String -> Integer -> String -> DataType -> HashMap String String -> (String, String, Integer)
+variableEvalSr :: String -> Integer -> String -> DataType -> FloatMap -> (String, String, Integer)
 variableEvalSr baseName idx varName dataType floatMap =
   let
     srName = baseName ++ "_" ++ show idx                    -- sr name 
@@ -65,7 +65,7 @@ variableEvalSr baseName idx varName dataType floatMap =
 -- Generates subroutine that evaluates a unary operation recursively by first creating a chain of subroutines that 
 -- eval any nested expressions in a depth first manner. Then the (type specific) unary op is applied to the result
 -- that was stored in the output register.
-unaryOpEvalSr :: String -> Integer -> UnaryOp -> Expr-> TypeMap -> HashMap String String-> (String, String, Integer)
+unaryOpEvalSr :: String -> Integer -> UnaryOp -> Expr-> TypeMap -> FloatMap-> (String, String, Integer)
 unaryOpEvalSr baseName index op subExpr typeMap floatMap =
   let
       -- recursively evaluate the subexpression. NOTE the idx is incremented
