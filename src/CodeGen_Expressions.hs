@@ -52,11 +52,11 @@ literalEvalSr baseName idx value valueType floatMap =
 
 -- generates sr for moving value within a variable into an output register
 variableEvalSr :: String -> Integer -> String -> DataType -> HashMap String String -> (String, String, Integer)
-variableEvalSr baseName idx varName varType floatMap =
+variableEvalSr baseName idx varName dataType floatMap =
   let
-    srName = baseName ++ "_" ++ show idx                          -- sr name 
-    moveInstruction = moveInstr_LitToReg varType varName floatMap -- move instr
-    srDef = srName ++ ":\n" ++ moveInstruction ++ "\tret\n"       -- sr def
+    srName = baseName ++ "_" ++ show idx                    -- sr name 
+    moveInstruction = moveInstr_VarToReg dataType varName   -- move instr
+    srDef = srName ++ ":\n" ++ moveInstruction ++ "\tret\n" -- sr def
 
   in (srDef, srName, idx + 1) -- inc idx for next sr inc case of nesting
 
