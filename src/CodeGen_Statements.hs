@@ -34,8 +34,7 @@ generateStmtSr optionalPrefix index stmt typeMap floatMap = case stmt of
     _ -> ("", "") 
 
   -- simple declarations are ignored as they are handled in the .bss section
-  SimpleDeclaration _ _ -> ("", "")
-  
+  SimpleDeclaration _ _ -> ("", "") 
   
   -- Return stmt
   ReturnStmt expr -> 

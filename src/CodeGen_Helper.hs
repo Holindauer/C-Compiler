@@ -117,5 +117,3 @@ moveInstr_LitToReg exprType literal floatMap =
   where 
     floatVar = floatMap HashMap.! literal
 
-
-

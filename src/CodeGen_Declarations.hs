@@ -102,6 +102,14 @@ getExprFloats (FloatLit value) = [(show value, FloatType)]
 getExprFloats (DoubleLit value) = [(show value, DoubleType)]
 getExprFloats _ = []
 
+
+-- helperValues contains data within the .data section used for intermediate computation (inc, for example)
+helperValues :: String 
+helperValues = unlines
+  ["\tone_float dd 1.0\n",
+  "\tone_double dq 1.0\n"
+  ]
+
 -------------------------------------------------------------------------------------------------- .bss section generation
 
 
@@ -112,11 +120,14 @@ genBssSection stmts typeMap = foldl' (appendBssSection typeMap) "section .bss\n"
     appendBssSection :: TypeMap -> String -> Stmt -> String
     appendBssSection tMap acc stmt =
       let varName = getVarName stmt
+
+      -- Use typemap to determine the data type of the variable
       in case HashMap.lookup varName tMap of
         Just IntType -> acc ++ "\t" ++ varName ++ " resd 1\t; 32-bit int\n"
         Just FloatType -> acc ++ "\t" ++ varName ++ " resd 1\t; 32-bit single-precision float\n"
         Just DoubleType -> acc ++ "\t" ++ varName ++ " resq 1\t; 64-bit double-precision float\n"
         Just CharType -> acc ++ "\t" ++ varName ++ " resb 1\t; Byte for character\n"
+
         _ -> acc  -- Handle unknown data types or missing entries quietly
 
     -- get var name
