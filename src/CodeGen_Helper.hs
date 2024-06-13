@@ -117,3 +117,23 @@ moveInstr_LitToReg exprType literal floatMap =
   where 
     floatVar = floatMap HashMap.! literal
 
+
+-- func for pusing val in output register onto the stack, places value in rax/rsp depending on data type
+pushToStack :: DataType -> String
+pushToStack dataType = case dataType of
+  IntType -> "\tpush rax\n"
+  CharType -> "\tpush rax\n"
+  FloatType -> "\tsub rsp, 4        ; Allocate stack space for the float" ++ 
+               "\tmovss [rsp], xmm0 ; Move the float from xmm0 to the stack"
+  DoubleType -> "\tsub rsp, 8        ; Allocate stack space for the double" ++ 
+                "\tmovsd [rsp], xmm0 ; Move the double from xmm0 to the stack"
+  _ -> error "Unsupported data type"
+
+-- func for popping val from stack, does not place val in rax/xmm0, val in rax/rsp intended to be used before pop
+popFromStack :: DataType -> String
+popFromStack dataType = case dataType of
+  IntType -> "\tpop rax\n"
+  CharType -> "\tpop rax\n"
+  FloatType -> "\tadd rsp, 4   ; Deallocate the stack space for the float"
+  DoubleType -> "\tadd rsp, 8  ; Deallocate the stack space for the double"
+  _ -> error "Unsupported data type"
