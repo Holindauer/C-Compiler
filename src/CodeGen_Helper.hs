@@ -129,11 +129,16 @@ pushToStack dataType = case dataType of
                 "\tmovsd [rsp], xmm0 ; Move the double from xmm0 to the stack"
   _ -> error "Unsupported data type"
 
--- func for popping val from stack, does not place val in rax/xmm0, val in rax/rsp intended to be used before pop
+-- func for popping val from stack into output register, places value in rax/xmm1 depending on data type
+-- xmm0 is assumed to be used for another value, so xmm1 is used for the pop
 popFromStack :: DataType -> String
 popFromStack dataType = case dataType of
   IntType -> "\tpop rax\n"
   CharType -> "\tpop rax\n"
-  FloatType -> "\tadd rsp, 4   ; Deallocate the stack space for the float"
-  DoubleType -> "\tadd rsp, 8  ; Deallocate the stack space for the double"
+  FloatType ->
+    "\tmovss xmm1, [rsp]    ; Move the single-precision float from stack top to xmm1\n" ++
+    "\tadd rsp, 4           ; Deallocate the stack space for the float\n"
+  DoubleType ->
+    "\tmovsd xmm1, [rsp]    ; Move the double-precision float from stack top to xmm1\n" ++
+    "\tadd rsp, 8           ; Deallocate the stack space for the double\n"
   _ -> error "Unsupported data type"
