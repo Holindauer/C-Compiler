@@ -133,8 +133,10 @@ pushToStack dataType = case dataType of
 -- xmm0 is assumed to be used for another value, so xmm1 is used for the pop
 popFromStack :: DataType -> String
 popFromStack dataType = case dataType of
-  IntType -> "\tpop rax\n"
-  CharType -> "\tpop rax\n"
+  IntType -> 
+    "\tpop rbx        ; Pop the value from the stack\n" 
+  CharType -> 
+    "\tpop rbx        ; Pop the value from the stack\n" 
   FloatType ->
     "\tmovss xmm1, [rsp]    ; Move the single-precision float from stack top to xmm1\n" ++
     "\tadd rsp, 4           ; Deallocate the stack space for the float\n"

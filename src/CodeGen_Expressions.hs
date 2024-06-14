@@ -17,26 +17,25 @@ import Data.Hashable
 genExprEvalSr :: String -> Integer -> Expr -> TypeMap -> FloatMap -> (String, String, Integer)
 genExprEvalSr baseName idx expr typeMap floatMap = case expr of
 
-  -- literal base case
+  -- literal (base case)
   IntLit value -> literalEvalSr baseName idx (show value) IntType floatMap
   FloatLit value -> literalEvalSr baseName idx (show value) FloatType floatMap
   DoubleLit value -> literalEvalSr baseName idx (show value) DoubleType floatMap
   CharLit value -> literalEvalSr baseName idx (show (fromEnum value)) CharType floatMap
 
-  -- variable base case
+  -- variable (base case)
   Var varName -> variableEvalSr baseName idx varName (typeMap HashMap.! varName) floatMap
 
-  -- recursive cases (binary and unary ops)
+  -- recursive case (unary op)
   UnaryOp op subExpr ->
     let (subSr, subName, newIdx) = genExprEvalSr baseName idx subExpr typeMap floatMap
     in unaryOpEvalSr baseName newIdx op subExpr typeMap floatMap
 
-
-
-  -- BinOp op lhs rhs ->
-  --   let (lhsSr, lhsName, newIndex) = genExprEvalSr baseName index lhs typeMap
-  --       (rhsSr, rhsName, finalIndex) = genExprEvalSr baseName newIndex rhs typeMap
-  --   in binaryOpEvalSr baseName finalIndex op lhsName rhsName
+  -- recursive case (binary op)
+  BinOp op lhs rhs ->
+    let (lhsSr, lhsName, newIndex) = genExprEvalSr baseName idx lhs typeMap floatMap
+        (rhsSr, rhsName, finalIndex) = genExprEvalSr baseName newIndex rhs typeMap floatMap
+    in binaryOpEvalSr baseName finalIndex op lhs rhs typeMap floatMap
 
   _ -> error "Unsupported expression type"
 
@@ -116,7 +115,72 @@ typeSpecific_UnaryOp op exprType = case op of
   Decrement -> case exprType of
     IntType -> "\tdec rax\n"
     CharType -> "\tdec rax\n"
-    FloatType -> "\tcall decrement_float\n" -- helper sr defined in CodeGen_Main.hs
-    DoubleType -> "\tcall decrement_double\n" -- helper sr defined in CodeGen_Main.hs
+    FloatType -> "\tsubss xmm0, [one_float]\n"
+    DoubleType -> "\tsubsd xmm1, [one_double]\n"
 
   _ -> error "Operation not supported"
+
+
+-------------------------------------------------------------------------------------------------- Binary Op Eval Subroutine Generation
+
+-- Helper func to generate a subroutine that evaluates a binary operation recursively by 
+-- generating a chain of subroutine definitions that will evaluate the left and right hand
+-- subexpressions in a depth first manner. The output of the left hand side expression is
+-- stored on the stack before evaluating the rhs. The final result is stored in the rax register.
+binaryOpEvalSr :: String -> Integer -> Op -> Expr -> Expr -> TypeMap -> FloatMap -> (String, String, Integer)
+binaryOpEvalSr baseName index op lhs rhs typeMap floatMap =
+  let
+      -- Generate subroutine definitions for evaluating LHS and RHS
+      (lhsExprEvalSrDef, lhsExprEvalSrName, lhsLastIndex) = 
+        genExprEvalSr (baseName ++ "_lhs_eval") (index) lhs typeMap floatMap
+      (rhsExprEvalSrDef, rhsExprEvalSrName, rhsLastIndex) = 
+        genExprEvalSr (baseName ++ "_rhs_eval") (lhsLastIndex) rhs typeMap floatMap
+
+      -- get type-specific push/pop command for intermediate lhs value
+      push = pushToStack (getExprType lhs typeMap)
+      pop = popFromStack (getExprType lhs typeMap)
+
+      -- Unique subroutine name for the binary operation
+      binaryOpSrName = baseName ++ "_" ++ show index
+
+      -- Define the binary operation subroutine
+      binaryOpSrDef = binaryOpSrName ++ ":\n" ++
+          "\tcall " ++ lhsExprEvalSrName ++ "\n"  ++ push ++  -- Eval lhs and Push result to stack
+          "\tcall " ++ rhsExprEvalSrName ++ "\n" ++ pop ++    -- Eval rhs and Pop lhs result from stack (now in rbx^xmm1)
+          binaryOpAsm op (getExprType lhs typeMap) ++         -- Gen the binOp instr (lhs in rbx/xmm1, rhs in rax/xmm0)
+          "\tret\n"
+
+      -- Combine the subroutine definitions with the binary operation code
+      fullBinaryOpSrDef = lhsExprEvalSrDef ++ rhsExprEvalSrDef ++ binaryOpSrDef
+
+    -- Return the complete binary operation sr def, name, updated idx
+    in (fullBinaryOpSrDef, binaryOpSrName, rhsLastIndex)
+
+
+-- binaryOpAsm is a helper function called within genExprEvalSr that generates the
+-- NASM assembly code for a specific binary operation based on the provided binary op.s
+-- It is assumed that the values for which the operation is being applied are already
+-- within the rax and rbx registers. Commutativity does not apply to this setup.
+binaryOpAsm :: Op -> DataType -> String
+binaryOpAsm op exprType = case op of
+
+  -- Add
+  Add -> case exprType of
+    IntType -> "\tadd rax, rbx\n"
+    CharType -> "\tadd rax, rbx\n"
+    FloatType -> "\taddss xmm0, xmm1\n"
+    DoubleType -> "\taddsd xmm0, xmm1\n"
+
+  --Subtract
+  Subtract -> case exprType of
+    IntType -> "\tsub rax, rbx\n"
+    CharType -> "\tsub rax, rbx\n"
+    FloatType -> "\tsubss xmm0, xmm1\n"
+    DoubleType -> "\tsubsd xmm0, xmm1\n"
+
+  -- Multiply
+  Multiply -> case exprType of
+    IntType -> "\timul rax, rbx\n"
+    CharType -> "\timul rax, rbx\n"
+    FloatType -> "\tmulss xmm0, xmm1\n"
+    DoubleType -> "\tmulsd xmm0, xmm1\n"
