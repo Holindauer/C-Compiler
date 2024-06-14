@@ -36,6 +36,16 @@ generateStmtSr optionalPrefix index stmt typeMap floatMap = case stmt of
   -- simple declarations are ignored as they are handled in the .bss section
   SimpleDeclaration _ _ -> ("", "") 
   
+  -- conditional stmt
+  IfStmt condition thenBody elseBody -> 
+    let conditionSrName = optionalPrefix ++ "cond_stmt_" ++ show index
+    in (genConditionalSr conditionSrName index condition thenBody elseBody typeMap floatMap)
+
+  -- else stmt
+  ElseStmt body -> 
+    let elseSrName = optionalPrefix ++ "else_stmt_" ++ show index
+    in generateStmtSr elseSrName index (IfStmt (IntLit 1) body []) typeMap floatMap
+
   -- Return stmt
   ReturnStmt expr -> 
     let returnSrName = optionalPrefix ++ "return_stmt_" ++ show index
@@ -43,6 +53,35 @@ generateStmtSr optionalPrefix index stmt typeMap floatMap = case stmt of
 
   _ -> ("", "")-- error "Unsupported statement type" 
 
+
+-- genBodyOfStmts generates a subroutines for each stmt in a list of stmts, packages their calls 
+-- together into a subroutine that will execute them in order, and returns the name of this subroutine
+-- and all the aforementioned subroutine definitions concatenated together into a single string.
+-- NOTE: the baseName is assumed to already be a unique name as part of a larger subroutine (if or loop)
+genBodyOfStmts :: String -> [Stmt] -> TypeMap -> FloatMap -> (String, String)
+genBodyOfStmts baseName stmts typeMap floatMap =
+  let
+    -- gen [(call, def)] for each stmt
+    stmtsIndexed = zipWith (\i stmt -> (baseName ++ "_" ++ show i, i, stmt)) [0..] stmts       -- list of [(name, index, stmt)]
+    stmtsSrTuples = map (\stmt -> uncurry3 generateStmtSr stmt typeMap floatMap) stmtsIndexed  -- pass (name, idx, stmt, typeMap) into generateStmtSr                        
+
+    -- concat subroutine calls and definitions into single strings respectively
+    stmtsSrDefs = concatMap (\(call, def) -> def) stmtsSrTuples                             
+    stmtSrCalls = concatMap (\(call, def) -> call) stmtsSrTuples                           
+
+    -- gen subroutine that will call each stmt in the body sequentially
+    execBodySrName = baseName ++ "_execute_body"
+    execBodySrDef = execBodySrName ++ ":\n" ++ stmtSrCalls ++ "\tret\n"   
+
+    -- append the subroutine definitions together
+    fullSrDef = execBodySrDef ++ stmtsSrDefs
+
+  in (execBodySrName, fullSrDef)
+
+  where 
+    -- uncurry for 3 args
+    uncurry3 :: (a -> b -> c -> d) -> (a, b, c) -> d
+    uncurry3 f (x, y, z) = f x y z
 
 ------------------------------------------------------------------------------------------------- Asssignment Subroutine generation
 
@@ -81,6 +120,50 @@ getDeclarationAssignSr :: String -> Integer -> String -> Expr -> TypeMap -> Floa
 getDeclarationAssignSr optionalPrefix index lValue expr typeMap floatMap = 
   let assignSrName = optionalPrefix ++ lValue ++ "_assignment_" ++ show index
   in (genAssignmentSr assignSrName index lValue expr typeMap floatMap)
+
+-------------------------------------------------------------------------------------------------- Conditional Subroutine Generation
+
+-- genConditionalSr generates a subroutine call and associated definitions for a conditional statement. This involves 
+-- generating a subroutine for the evaluation of the conditional expression, a subroutine for the sequential execution 
+-- of each statement within the then-body, and a subroutine that will call the conditional eval subroutine and, if the 
+-- result is true, call the then body execution subroutine.
+genConditionalSr :: String -> Integer -> Expr -> [Stmt] -> [Stmt] -> TypeMap -> FloatMap -> (String, String)
+genConditionalSr baseName index condition thenBody elseBody typeMap floatMap =
+  let 
+    -- subroutine name for the conditional statement 
+    condSrName = baseName ++ "_" ++ show index                                            
+    
+    -- gen conditional eval subroutine   
+    evalCondSrBaseName = condSrName ++ "_eval_cond_" ++ show index      
+    (condEvalSrDef, condEvalSrName, _) = genExprEvalSr evalCondSrBaseName index condition typeMap floatMap
+
+    -- gen subroutine defs and calls for each statement in the then-body 
+    (thenBodySrName, thenBodySrDef) = genBodyOfStmts (condSrName ++ "_then") thenBody typeMap floatMap
+    
+    -- gen optional else body execution sr def and name (will be empty if no else body)
+    (execElseBodySrName, execElseBodySrDef) = genOptionalElseBody baseName elseBody typeMap floatMap
+
+    -- gen sr def and call for calling the condition eval sr, executing then body if
+    -- result in rax is true, or calling the else body if one exists and the result is false 
+    condSrCall = "\tcall " ++ condSrName ++ "\n"          -- call
+    condSrDef = condSrName ++ ":\n" ++                    -- def
+                "\tcall " ++ condEvalSrName ++ "\n" ++    -- eval condition (result in rax)
+                "\tcmp rax, 1\n" ++                       -- compare val in rax to 1
+                "\tje " ++ thenBodySrName ++ "\n" ++      -- jump to then-body execution if true
+                (if not (null elseBody) then "\tjne " ++ execElseBodySrName ++ "\n" else "") ++ -- jump to else body if it exists and cond is false
+                "\tret\n"                               
+
+    -- Combine all subroutine definitions together
+    fullSrDef = "\n;Conditional Statement\n" ++ condSrDef ++ condEvalSrDef ++ thenBodySrDef ++ execElseBodySrDef 
+
+  in (condSrCall, fullSrDef)
+
+-- genOptionalElseBody generates the subroutine definition and call for each statement in the 
+-- else body of a conditional statement. If there is no else body, it will return empty strings. 
+genOptionalElseBody :: String -> [Stmt] -> TypeMap -> FloatMap -> (String, String)
+genOptionalElseBody baseName elseBody typeMap floatMap
+  | null elseBody = ("", "")                                       
+  | otherwise     = genBodyOfStmts (baseName ++ "_else") elseBody  typeMap floatMap
 
 ------------------------------------------------------------------------------------------------- Return Statements
 
