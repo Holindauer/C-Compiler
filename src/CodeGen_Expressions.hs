@@ -184,3 +184,26 @@ binaryOpAsm op exprType = case op of
     CharType -> "\timul rax, rbx\n"
     FloatType -> "\tmulss xmm0, xmm1\n"
     DoubleType -> "\tmulsd xmm0, xmm1\n"
+
+
+  -- Equal
+  Equal -> case exprType of 
+    IntType -> "\tcmp rax, rbx\n" ++
+               "\tsete al\n" ++
+               "\tmovzx rax, al\n"
+
+    CharType -> "\tcmp rax, rbx\n" ++
+                "\tsete al\n" ++
+                "\tmovzx rax, al\n"
+
+    FloatType -> "\tcomiss xmm0, xmm1  ; Compare Single-Precision Floats" ++
+                 "\tsetnp al           ; Set AL if not parity (NaN would set parity flag)" ++
+                 "\tsete al            ; Set AL if equal (ZF set by comiss)" ++
+                 "\tand al, al         ; AND AL with itself to combine conditions" ++
+                 "\tmovzx rax, al      ; Move the result to RAX, zero-extending it"
+
+    DoubleType -> "\tcomisd xmm0, xmm1 ;Compare Double-Precision Floats:" ++
+                  "\tsetnp al          ; Set AL if not parity (handle NaNs)"
+                  "\tsete al           ; Set AL if equal" ++
+                  "\tand al, al        ; Ensure combination of parity and zero flag checks" ++
+                  "\tmovzx rax, al     ; Zero-extend AL to RAX"
