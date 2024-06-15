@@ -4,7 +4,11 @@ This repository implements a compiler for a subset of C that was written in Hask
 
 At this stage, the specific subset of C includes assignments, for loops, while loops, and  conditional statements with some restrictions on syntax. Accepted data types include int, float, char, and double. Pointers, arrays, and libraries are not supported. Compilation is also limited to a single main function with no additional functions or global variables.
 
-The purpose of this implementation is thus mostly on the educational side for learning how compilation works under the hood. 
+The purpose of this implementation is thus mostly on the educational side for learning how compilation works under the hood.
+
+# Project Status
+
+Currently this project is still under construction. Not everything works as it should, but will soon. The goal described in the above section currently works for processes that involve integers/char. There is work being done on processes that involve floating point data, which are currently somewhat shaky.
 
 
 # How to Use
