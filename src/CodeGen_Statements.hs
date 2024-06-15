@@ -51,6 +51,11 @@ generateStmtSr optionalPrefix index stmt typeMap floatMap = case stmt of
     let forLoopSrName = optionalPrefix ++ "for_loop_" ++ show index
     in genForLoopSr forLoopSrName index initStmt condition updateStmt body typeMap floatMap
 
+  -- while loop stmt
+  WhileStmt condition body -> 
+    let whileLoopSrName = optionalPrefix ++ "while_loop_" ++ show index
+    in genWhileLoopSr whileLoopSrName index condition body typeMap floatMap
+
   -- increment stmt
   IncrementStmt varName -> 
     let incrementSrName = optionalPrefix ++ "increment_stmt_" ++ show index
@@ -230,6 +235,43 @@ genForLoopSr baseName index initStmt condition updateStmt body typeMap floatMap 
 
   in (forLoopSrCall, fullSrDef)
 
+-------------------------------------------------------------------------------------------------- While Loop Subroutine Generation
+
+-- genWhileLoopSr generates the NASM assembly code for a while loop. This involves generating a subroutine
+-- for the evaluation of the conditional expression, a subroutine for the sequential execution of each statement within
+-- the body of the while loop, and a subroutine that will call the conditional eval subroutine and, if the result is true,
+-- call the body execution subroutine.
+genWhileLoopSr :: String -> Integer -> Expr -> [Stmt] -> TypeMap -> FloatMap -> (String, String) 
+genWhileLoopSr baseName index condition body typeMap floatMap =
+  let
+    
+    -- gen subroutine for termination condition expr
+    (conditionSrDef, conditionSrName, _) = genExprEvalSr baseName 0 condition typeMap floatMap
+
+    -- gen subroutine for the loop body 
+    (bodySrBaseName, bodySrDef) = genBodyOfStmts (baseName ++ "_body") body typeMap floatMap
+
+    -- generate subroutine for while loop  
+    whileLoopSrName = baseName ++ "_looper_" ++ show index
+    whileLoopSrCall = "\tcall " ++ whileLoopSrName ++ "\n" -- call
+    whileLoopSrDef = whileLoopSrName ++ ":\n" ++           -- kickstart loop def                
+                  "\tjmp while_loop_condition_" ++ show index ++ "\n" ++   -- jump to condition check
+
+                  -- eval condition sr def
+                  "while_loop_condition_" ++ show index ++ ":\n" ++       
+                  "\tcall " ++ conditionSrName ++ "\n" ++                 -- condition eval 
+                  "\tcmp rax, 0\n" ++                                     -- compare result to 0
+                  "\tje while_loop_end_" ++ show index ++ "\n" ++         -- jump to loop end if false (zero)
+                  "\tcall " ++ bodySrBaseName ++ "\n" ++                  -- call loop body exec
+                  "\tjmp while_loop_condition_" ++ show index ++ "\n" ++  -- jump back to condition check
+
+                  -- loop end def
+                  "while_loop_end_" ++ show index ++ ":\n" ++ "\tret\n"
+
+    -- Combine all subroutine defs 
+    fullSrDef = whileLoopSrDef ++ conditionSrDef ++ bodySrDef 
+
+  in (whileLoopSrCall, fullSrDef)
 
 -------------------------------------------------------------------------------------------------- Increment/Decrement Subroutine Generation
 
