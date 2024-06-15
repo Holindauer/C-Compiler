@@ -46,6 +46,16 @@ generateStmtSr optionalPrefix index stmt typeMap floatMap = case stmt of
     let elseSrName = optionalPrefix ++ "else_stmt_" ++ show index
     in generateStmtSr elseSrName index (IfStmt (IntLit 1) body []) typeMap floatMap
 
+  -- increment stmt
+  IncrementStmt varName -> 
+    let incrementSrName = optionalPrefix ++ "increment_stmt_" ++ show index
+    in genIncrementSr incrementSrName index varName typeMap
+
+  -- decrement stmt
+  DecrementStmt varName -> 
+    let decrementSrName = optionalPrefix ++ "decrement_stmt_" ++ show index
+    in genDecrementSr decrementSrName index varName typeMap
+
   -- Return stmt
   ReturnStmt expr -> 
     let returnSrName = optionalPrefix ++ "return_stmt_" ++ show index
@@ -127,34 +137,35 @@ getDeclarationAssignSr optionalPrefix index lValue expr typeMap floatMap =
 -- generating a subroutine for the evaluation of the conditional expression, a subroutine for the sequential execution 
 -- of each statement within the then-body, and a subroutine that will call the conditional eval subroutine and, if the 
 -- result is true, call the then body execution subroutine.
+-- Generate subroutine for conditional statements including else branch handling
 genConditionalSr :: String -> Integer -> Expr -> [Stmt] -> [Stmt] -> TypeMap -> FloatMap -> (String, String)
 genConditionalSr baseName index condition thenBody elseBody typeMap floatMap =
-  let 
-    -- subroutine name for the conditional statement 
-    condSrName = baseName ++ "_" ++ show index                                            
-    
-    -- gen conditional eval subroutine   
-    evalCondSrBaseName = condSrName ++ "_eval_cond_" ++ show index      
+  let
+    -- Subroutine name for the conditional statement
+    condSrName = baseName ++ "_" ++ show index
+
+    -- Generate conditional evaluation subroutine
+    evalCondSrBaseName = condSrName ++ "_eval_cond_" ++ show index
     (condEvalSrDef, condEvalSrName, _) = genExprEvalSr evalCondSrBaseName index condition typeMap floatMap
 
-    -- gen subroutine defs and calls for each statement in the then-body 
+    -- Generate subroutine definitions and calls for each statement in the then-body
     (thenBodySrName, thenBodySrDef) = genBodyOfStmts (condSrName ++ "_then") thenBody typeMap floatMap
-    
-    -- gen optional else body execution sr def and name (will be empty if no else body)
-    (execElseBodySrName, execElseBodySrDef) = genOptionalElseBody baseName elseBody typeMap floatMap
 
-    -- gen sr def and call for calling the condition eval sr, executing then body if
-    -- result in rax is true, or calling the else body if one exists and the result is false 
-    condSrCall = "\tcall " ++ condSrName ++ "\n"          -- call
-    condSrDef = condSrName ++ ":\n" ++                    -- def
-                "\tcall " ++ condEvalSrName ++ "\n" ++    -- eval condition (result in rax)
-                "\tcmp rax, 1\n" ++                       -- compare val in rax to 1
-                "\tje " ++ thenBodySrName ++ "\n" ++      -- jump to then-body execution if true
-                (if not (null elseBody) then "\tjne " ++ execElseBodySrName ++ "\n" else "") ++ -- jump to else body if it exists and cond is false
-                "\tret\n"                               
+    -- Generate optional else body execution subroutine definition and name
+    (execElseBodySrName, execElseBodySrDef) = genOptionalElseBody (condSrName ++ "_else") elseBody typeMap floatMap
+
+    -- Generate subroutine definition and call for evaluating the condition and branching
+    condSrCall = "\tcall " ++ condSrName ++ "\n"
+    condSrDef = condSrName ++ ":\n" ++
+                "\tcall " ++ condEvalSrName ++ "\n" ++
+                "\tcmp rax, 1\n" ++   -- ! This contains an issue, integration tests will point it out
+                "\tje " ++ thenBodySrName ++ "\n" ++
+                (if not (null elseBody) then "\tjne " ++ execElseBodySrName ++ "\n" else "") ++
+                "\tret\n"
 
     -- Combine all subroutine definitions together
-    fullSrDef = "\n;Conditional Statement\n" ++ condSrDef ++ condEvalSrDef ++ thenBodySrDef ++ execElseBodySrDef 
+    fullSrDef = "\n;Conditional Statement\n" ++ condSrDef ++ condEvalSrDef ++ thenBodySrDef ++
+                (if not (null elseBody) then execElseBodySrDef else "")
 
   in (condSrCall, fullSrDef)
 
@@ -164,6 +175,37 @@ genOptionalElseBody :: String -> [Stmt] -> TypeMap -> FloatMap -> (String, Strin
 genOptionalElseBody baseName elseBody typeMap floatMap
   | null elseBody = ("", "")                                       
   | otherwise     = genBodyOfStmts (baseName ++ "_else") elseBody  typeMap floatMap
+
+-------------------------------------------------------------------------------------------------- Increment/Decrement Subroutine Generation
+
+-- Generates subroutine definition and call for incrementing a variable
+genIncrementSr :: String -> Integer -> String -> TypeMap -> (String, String)
+genIncrementSr baseName index varName typeMap = 
+  let
+    -- unique subroutine names
+    incrementSrName = baseName ++ show index
+
+    -- gen subroutine cal and def 
+    incrementSrCall = "\tcall " ++ incrementSrName ++ "\n" 
+    incrementSrDef = incrementSrName ++ ":\n" ++
+                     "\tinc [" ++ varName ++ "_label]\n" ++ "\tret\n" -- inc value in var and return                     
+
+  in (incrementSrCall, incrementSrDef)
+
+
+-- Generates subroutine defintion and call for decrementing a variable
+genDecrementSr :: String -> Integer -> String -> TypeMap -> (String, String)
+genDecrementSr baseName index varName typeMap = 
+  let
+    -- unique subroutine names
+    decrementSrName = baseName ++ show index
+
+    -- gen subroutine def
+    decrementSrCall = "\tcall " ++ decrementSrName ++ "\n"
+    decrementSrDef = decrementSrName ++ ":\n" ++
+                     "\tdec [" ++ varName ++ "_label]\n" ++ "\tret\n"  -- dec val in var and return
+
+  in (decrementSrCall, decrementSrDef)
 
 ------------------------------------------------------------------------------------------------- Return Statements
 
