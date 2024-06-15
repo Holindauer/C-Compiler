@@ -46,6 +46,11 @@ generateStmtSr optionalPrefix index stmt typeMap floatMap = case stmt of
     let elseSrName = optionalPrefix ++ "else_stmt_" ++ show index
     in generateStmtSr elseSrName index (IfStmt (IntLit 1) body []) typeMap floatMap
 
+  -- for loop stmt
+  ForStmt initStmt condition updateStmt body -> 
+    let forLoopSrName = optionalPrefix ++ "for_loop_" ++ show index
+    in genForLoopSr forLoopSrName index initStmt condition updateStmt body typeMap floatMap
+
   -- increment stmt
   IncrementStmt varName -> 
     let incrementSrName = optionalPrefix ++ "increment_stmt_" ++ show index
@@ -175,6 +180,56 @@ genOptionalElseBody :: String -> [Stmt] -> TypeMap -> FloatMap -> (String, Strin
 genOptionalElseBody baseName elseBody typeMap floatMap
   | null elseBody = ("", "")                                       
   | otherwise     = genBodyOfStmts (baseName ++ "_else") elseBody  typeMap floatMap
+
+
+-------------------------------------------------------------------------------------------------- For Loop Subroutine Generation
+
+-- genForLoopSr generates a call and associated definitions for a for loop. This involves generating a subroutine
+-- for the initialization statement, a subroutine for the update statement, a subroutine for the evaluation of the
+-- loop termination condition, a subroutine for the sequential execution of each statement within the body of the loop,
+-- and a subroutine that will call the initialization statement, the condition eval subroutine, and if the result is true,
+-- call the update statement and the body execution subroutine.
+genForLoopSr :: String -> Integer -> Stmt -> Expr -> Stmt -> [Stmt] -> TypeMap -> FloatMap -> (String, String)
+genForLoopSr baseName index initStmt condition updateStmt body typeMap floatMap =
+  let
+    -- gen subroutine for loop counter init
+    initStmtSrName = baseName ++ "_init_stmt_" ++ show index
+    (initStmtSrCall, initStmtSrDef) = generateStmtSr initStmtSrName index initStmt typeMap floatMap
+
+    -- gen subroutine for update statement
+    updateStmtSrName = baseName ++ "_update_stmt_" ++ show index
+    (updateStmtSrCall, updateStmtSrDef) = generateStmtSr updateStmtSrName index updateStmt typeMap floatMap
+
+    -- gen subroutine for loop termination condition eval
+    (conditionSrDef, conditionSrName, _) = genExprEvalSr baseName index condition typeMap floatMap
+
+    -- gen subroutine for each stmt in the loop body 
+    (exectuteBodySrName, bodySrDef) = genBodyOfStmts (baseName ++ "_body") body typeMap floatMap
+
+    -- gen subroutine to call the loop counter init, eval loop termination condition and if true call update statement and loop body, 
+    forLoopSrName = baseName ++ "_looper_" ++ show index
+    forLoopSrCall = "\tcall " ++ forLoopSrName ++ "\n"                     
+    forLoopSrDef = forLoopSrName ++ ":\n" ++                             -- kickstart loop def            
+                  initStmtSrCall ++                                      -- call init stmt
+                  "\tjmp for_loop_condition_" ++ show index ++ "\n" ++   -- jump to condition check
+
+                  -- condition check sr def
+                  "for_loop_condition_" ++ show index ++ ":\n" ++        
+                  "\tcall " ++ conditionSrName ++ "\n" ++                -- call condition eval
+                  "\tcmp rax, 0\n" ++                                    -- compare result to 0
+                  "\tje for_loop_end_" ++ show index ++ "\n" ++          -- jump to end of loop if false
+                  "\tcall " ++ exectuteBodySrName ++ "\n" ++             -- exec loop body 
+                  updateStmtSrCall ++                                    -- call update stmt 
+                  "\tjmp for_loop_condition_" ++ show index ++ "\n" ++   -- jump back to condition check
+
+                  -- end loop sr def
+                  "for_loop_end_" ++ show index ++ ":\n" ++ "\tret\n"
+
+    -- Combine all subroutine definitions together
+    fullSrDef = forLoopSrDef ++ initStmtSrDef ++ conditionSrDef ++ updateStmtSrDef ++ bodySrDef
+
+  in (forLoopSrCall, fullSrDef)
+
 
 -------------------------------------------------------------------------------------------------- Increment/Decrement Subroutine Generation
 
