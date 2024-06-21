@@ -282,10 +282,18 @@ genIncrementSr baseName index varName typeMap =
     -- unique subroutine names
     incrementSrName = baseName ++ show index
 
+    -- get type from typeMap
+    varType = typeMap HashMap.! varName
+
+    -- type specifc increment statement
+    increment = case varType of
+      IntType -> "\tinc dword [" ++ varName ++ "]\n" 
+      CharType -> "\tinc byte [" ++ varName ++ "]\n"
+      _ -> "" --  inc of float and double currently not supported
+
     -- gen subroutine cal and def 
     incrementSrCall = "\tcall " ++ incrementSrName ++ "\n" 
-    incrementSrDef = incrementSrName ++ ":\n" ++
-                     "\tinc [" ++ varName ++ "_label]\n" ++ "\tret\n" -- inc value in var and return                     
+    incrementSrDef = incrementSrName ++ ":\n" ++ increment ++ "\tret\n"                  
 
   in (incrementSrCall, incrementSrDef)
 
@@ -297,10 +305,18 @@ genDecrementSr baseName index varName typeMap =
     -- unique subroutine names
     decrementSrName = baseName ++ show index
 
+    -- get type from typeMap
+    varType = typeMap HashMap.! varName
+
+    -- type specifc decrement statement
+    decrement = case varType of
+      IntType -> "\tdec dword [" ++ varName ++ "]\n" 
+      CharType -> "\tdec byte [" ++ varName ++ "]\n"
+      _ -> "" --  dec of float and double currently not supported
+
     -- gen subroutine def
     decrementSrCall = "\tcall " ++ decrementSrName ++ "\n"
-    decrementSrDef = decrementSrName ++ ":\n" ++
-                     "\tdec [" ++ varName ++ "_label]\n" ++ "\tret\n"  -- dec val in var and return
+    decrementSrDef = decrementSrName ++ ":\n" ++ decrement ++ "\tret\n"
 
   in (decrementSrCall, decrementSrDef)
 
