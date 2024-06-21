@@ -1,17 +1,17 @@
 int main(void){
 
-    int variable = 1;
+    int variable = 99;
 
 
     if (variable == 1){
 
-        variable = variable * 3;
+        variable = 2;
     }
     else if (variable == 2){
         variable = 2;
     }
     else{
-        variable = 4;
+        variable = 0;
     }
 
     return variable;

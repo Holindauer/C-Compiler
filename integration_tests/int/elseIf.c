@@ -1,14 +1,14 @@
 int main(void){
 
-    int variable = 4;
+    int variable = 2;
 
 
     if (variable == 1){
 
-        variable = variable * 3;
+        variable = 1;
     }
     else if (variable == 2){
-        variable = 2;
+        return 0;
     }
     else{
         variable = 4;

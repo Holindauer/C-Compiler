@@ -16,37 +16,35 @@ fi
 filename="${1%.*}"
 expected_exit_code=$2
 
-# Compile to assembly
-echo -e "Compiling C code to assembly code"
+# echo -e "Compiling C code to assembly code"
 stack run $1 $filename.asm
 
-# Assemble
-echo -e "Assembling assembly code"
+# echo -e "Assembling assembly code"
 nasm -f elf64 -o $filename.o $filename.asm
 
-# Link
-echo -e "Linking object file"
+# echo -e "Linking object file"
 ld -o $filename $filename.o
 
-# Execute 
-echo -e "Executing program"
+# echo -e "Executing program"
 ./$filename
 
 # Capture the actual exit code
 actual_exit_code=$?
 
 # Clean-up: delete object and executable files if they exist
-echo -e "Cleaning up..."
+# echo -e "Cleaning up..."
 rm -f $filename.o $filename $filename.asm
 
-echo
-echo -e "Expected exit code: $expected_exit_code"
+# echo
+# echo -e "Expected exit code: $expected_exit_code"
 echo "Actual exit code: $actual_exit_code"
-echo
+# echo
 
 # Check the exit code against the expected exit code and return 0 or 1 depending
 if [ $actual_exit_code -eq $expected_exit_code ]; then
-    echo -e "Test passed for $1." && exit 0
+    #echo -e "Test passed for $1."
+    exit 0
 else
-    echo -e "Test failed for $1." && exit 1
+    #echo -e "Test failed for $1."
+    exit 1
 fi

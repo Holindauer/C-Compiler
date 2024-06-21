@@ -2,69 +2,41 @@
 
 echo "Running tests..."
 
-c_src_files_dir="c_src_files"
+# Type directories each containing the source files
+type_dirs=("int") # "float" "char" "string")
 
-source_files=(
-    "assignment_literal_int.c"
-    "assignment_literal_double.c"  
-    "assignment_literal_float.c"   
-    "assignment_literal_char.c"
-    "assignment_unary_op.c" 
-    "assignment_binary_op.c" 
-    "assignment_nested_ops.c"
-    "forLoop_simple.c"
-    "conditional_if.c"
-    "conditional_else_if.c"
-    "conditional_else.c"
-    "whileLoop_simple.c"
-)
+# Source files that need to be tested
+source_files=("literalAssignment.c" "exprAssignment.c" "if.c" "elseIf.c" "else.c" "whileLoop.c" "forLoop.c")
 
-expected_exit_codes=(
-    2
-    0
-    0
-    0
-    2
-    6
-    6
-    10
-    3
-    2
-    4
-    10
-)
+# Expected exit code after execution
+expected_exit_code=0
 
-passed_tests=()
-failed_tests=()
+test_results=()
 
-i=0  # Initialize index for accessing expected exit codes
+# Loop over each type directory
+for dir in "${type_dirs[@]}"; do
 
-for file in "${source_files[@]}"
-do
-    echo "Running test for $file"
+    # Loop over each source file within the current type directory
+    for file in "${source_files[@]}"; do
+        echo "Running test for $dir/$file"
+        
+        # Compile and execute the source file
+        ./compileAndExecute.sh $dir/$file $expected_exit_code
+        
+        # Check the exit code of compilation
+        if [ $? -ne 0 ]; then
+            test_results+=("FAIL... $dir/$file")
+        fi
+        if [ $? -eq 0 ]; then
+            test_results+=("pass... $dir/$file")
+        fi
 
-    ./compileAndExecute.sh "$c_src_files_dir/$file" "${expected_exit_codes[$i]}"
-
-    if [ $? -ne 0 ]; then
-        echo "Test failed for $file"
-        failed_tests+=("$file")
-    else 
-        echo "Test passed for $file"
-        passed_tests+=("$file")
-    fi
-
-    ((i++))  # Increment the index for the next iteration
+    done
 done
 
-# Print the results
-for file in "${passed_tests[@]}"
-do
-    echo "PASS - $file"
-done
 
-for file in "${failed_tests[@]}"
-do
-    echo
-    echo "FAIL - $file"
-    echo
+clear
+echo "Test results:"
+for result in "${test_results[@]}"; do
+    printf "%s\n" "$result"
 done

@@ -1,11 +1,11 @@
 int main(void){
 
-    int variable = 2;
+    int variable = 1;
 
 
     if (variable == 1){
 
-        variable = variable * 3;
+        variable = 0;
     }
     else if (variable == 2){
         variable = 2;
