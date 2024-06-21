@@ -173,8 +173,8 @@ binaryOpAsm op exprType = case op of
 
   --Subtract
   Subtract -> case exprType of
-    IntType -> "\tsub rax, rbx\n"
-    CharType -> "\tsub rax, rbx\n"
+    IntType -> "\tsub rbx, rax\n" ++ "\tmov rax, rbx\n"
+    CharType -> "\tsub rbx, rax\n" ++ "\tmov rax, rbx\n"
     FloatType -> "\tsubss xmm0, xmm1\n"
     DoubleType -> "\tsubsd xmm0, xmm1\n"
 
